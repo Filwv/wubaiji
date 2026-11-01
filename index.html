@@ -2657,6 +2657,33 @@ html,body{
   text-shadow: 0 2px 10px rgba(0,0,0,0.8);
 }
 @keyframes tipFade { to { opacity: 1; } }
+/* 👇新增：ENTER 按钮样式 */
+.splash-enter-btn {
+  position: absolute;
+  bottom: 20%; /* 位置可以自行微调 */
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Times New Roman", Georgia, serif; /* 图二同款复古衬线字体 */
+  font-size: 22px;
+  color: #ffffff;
+  letter-spacing: 10px; /* 较宽的字间距 */
+  margin-left: 10px; /* 补偿字间距导致的视觉偏移 */
+  padding: 12px 30px;
+  cursor: pointer;
+  z-index: 20;
+  opacity: 0;
+  /* 延迟 2.5 秒后淡入，让玩家先看看水波 */
+  animation: tipFade 2s ease 2.5s forwards; 
+  text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  pointer-events: auto; /* 确保可以被点击 */
+  user-select: none;
+  -webkit-user-select: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.splash-enter-btn:active {
+  opacity: 0.6;
+  transform: translateX(-50%) scale(0.92); /* 点击时的微小缩放反馈 */
+}
 </style>
 </head>
 <body>
@@ -2665,15 +2692,16 @@ html,body{
   <!-- 终极水波纹开屏（只留空壳，JS会自动画） -->
   <div id="splash-screen">
   <!-- 顶层固定的主标题，不参与刮雾和水波 -->
-  <div class="splash-title-layer">
+    <div class="splash-title-layer">
     <div class="splash-logo">雾 白 机</div>
     <div class="splash-subtitle">☽ ⋆ 𝖂𝖚𝖇𝖆𝖎 ⋆ ☾</div>
-  </div>
+  </div> <!-- 这里补上 > -->
   
   <!-- 底层：负责水波和刮雾的 Canvas -->
   <canvas id="waterCanvas"></canvas>
   
   <div class="splash-tip">TOUCH THE GLASS</div>
+<!-- 👇新增：ENTER 按钮 👇 --> <div class="splash-enter-btn" id="splashEnterBtn">ENTER</div>
 </div>
 
   <div class="dynamic-island"></div>
@@ -9619,6 +9647,20 @@ async function load() {
   // === 开屏动画启动 ===
   initWaterSplash();
 
+  // 👇新增：ENTER 按钮触发退场 👇
+  const splashEnterBtn = document.getElementById('splashEnterBtn');
+  if (splashEnterBtn) {
+    splashEnterBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // 阻止冒泡，防止点击时触发底层的 Canvas 刮雾或拖拽
+      const splashEl = document.getElementById('splash-screen');
+      if (splashEl) {
+        splashEl.classList.add('hidden');
+        setTimeout(() => splashEl.remove(), 1200); // 动画渐隐后彻底移除
+      }
+    });
+  }
+  // 👆新增结束 👆
+
   if (!state.user.wxid) state.user.wxid = genWxid();
   await load();
   applyFont();
@@ -9692,7 +9734,7 @@ async function load() {
     cities.forEach(city => scheduleWeatherFetch(city));
   }, 400);
 
-    /* 全局 player 订阅：更新所有音乐盒 widget */
+            /* 全局 player 订阅：更新所有音乐盒 widget */
   player.subscribe(() => {
     $$('.widget-music').forEach(el => {
       const widgetId = el.dataset.widgetId;
@@ -9702,15 +9744,7 @@ async function load() {
     });
   });
 
-        // === 开屏动画：6秒后退场 ===
-  setTimeout(() => {
-    const splashEl = $('#splash-screen');
-    if (splashEl) {
-      splashEl.classList.add('hidden');
-      setTimeout(() => splashEl.remove(), 1200);
-    }
-  }, 6000); 
-})();
+})(); // 👈 直接到这里结束
 
 async function handleCameraCapture(dataURL) {
   const friendId = await pickFriendForPhoto();
