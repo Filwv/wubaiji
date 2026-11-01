@@ -9715,8 +9715,8 @@ function pickFriendForPhoto() {
     $('#pickFriendList').onclick = (e) => { const item = e.target.closest('.list-item'); if (!item) return; close(item.dataset.fid); };
   });
 }
- /* ============================================================
-   开屏终极刮雾 + 水波纹引擎（基于 WebGL Shader）
+/* ============================================================
+   开屏真实水面扭曲引擎（完美还原版）
    ============================================================ */
 function initWaterSplash() {
   const splash = document.getElementById('splash-screen');
@@ -9729,84 +9729,65 @@ function initWaterSplash() {
   canvas.width = width * dpr;
   canvas.height = height * dpr;
 
-  // 1. 准备底图和文字离屏画布
-  const offCanvas = document.createElement('canvas');
-  offCanvas.width = width * dpr;
-  offCanvas.height = height * dpr;
-  const offCtx = offCanvas.getContext('2d');
-  offCtx.scale(dpr, dpr);
+  // 1. 离屏 Canvas: 绘制所有文字
+  const canvasT = document.createElement('canvas');
+  canvasT.width = width * dpr; canvasT.height = height * dpr;
+  const ctxT = canvasT.getContext('2d');
+  ctxT.scale(dpr, dpr);
 
-  const img = new Image();
-  img.src = './bg.jpg';
+  // 2. 离屏 Canvas: 绘制擦除遮罩
+  const canvasM = document.createElement('canvas');
+  canvasM.width = width * dpr; canvasM.height = height * dpr;
+  const ctxM = canvasM.getContext('2d');
+  ctxM.scale(dpr, dpr);
 
-  // 2. 绘制所有的文字（保证绝对不乱码）
+  // 绘制文案
   function drawTexts() {
-    offCtx.clearRect(0, 0, width, height);
-    if (img.complete && img.naturalWidth > 0) {
-      const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
-      offCtx.drawImage(img, (width - img.naturalWidth * scale) / 2, (height - img.naturalHeight * scale) / 2, img.naturalWidth * scale, img.naturalHeight * scale);
-    } else {
-      offCtx.fillStyle = '#255ea0'; offCtx.fillRect(0, 0, width, height);
-    }
+    ctxT.clearRect(0, 0, width, height);
+    ctxT.shadowColor = 'rgba(0,0,0,0.6)';
+    ctxT.shadowBlur = 8;
+    ctxT.fillStyle = '#ffffff';
+    ctxT.textAlign = 'center';
+    ctxT.textBaseline = 'middle';
 
-    // 加上一层深色遮罩，让白字清晰
-    offCtx.fillStyle = 'rgba(8, 36, 77, 0.35)';
-    offCtx.fillRect(0, 0, width, height);
+    // 雾白机（居中偏上）
+    ctxT.font = '500 42px "Ma Shan Zheng", "STXingkai", serif';
+    ctxT.fillText('雾 白 机', width / 2, height * 0.35);
+    ctxT.font = '14px -apple-system, sans-serif';
+    ctxT.fillStyle = 'rgba(255,255,255,0.85)';
+    ctxT.fillText('☽ ⋆ 𝖂𝖚𝖇𝖆𝖎 ⋆ ☾', width / 2, height * 0.35 + 32);
 
-    // 开启文字阴影
-    offCtx.shadowColor = 'rgba(0,0,0,0.6)';
-    offCtx.shadowBlur = 8;
-    offCtx.fillStyle = '#ffffff';
-    offCtx.textAlign = 'center';
-    offCtx.textBaseline = 'middle';
+    // Amor fati
+    ctxT.textAlign = 'left';
+    ctxT.font = '400 24px "Pinyon Script", cursive';
+    ctxT.fillStyle = 'rgba(255,255,255,0.9)';
+    ctxT.fillText('Amor fati.', width * 0.15, height * 0.18);
 
-    // —— 主标题（绝对居中）——
-    offCtx.font = '500 42px "Ma Shan Zheng", "STXingkai", serif';
-    offCtx.fillText('雾 白 机', width / 2, height * 0.35);
-    
-    offCtx.font = '14px -apple-system, sans-serif';
-    offCtx.fillStyle = 'rgba(255,255,255,0.85)';
-    offCtx.fillText('☽ ⋆ 𝖂𝖚𝖇𝖆𝖎 ⋆ ☾', width / 2, height * 0.35 + 32);
+    // 佛罗伦萨
+    ctxT.font = '300 14px "Songti SC", "SimSun", serif';
+    ctxT.fillStyle = 'rgba(255,255,255,0.85)';
+    ctxT.fillText('窗外是佛罗伦萨', width * 0.15, height * 0.62);
+    ctxT.fillText('桌上是死', width * 0.18, height * 0.62 + 24);
 
-    // —— 拉丁文：Amor fati ——
-    offCtx.textAlign = 'left';
-    offCtx.font = '400 24px "Pinyon Script", cursive';
-    offCtx.fillStyle = 'rgba(255,255,255,0.9)';
-    offCtx.fillText('Amor fati.', width * 0.15, height * 0.18);
+    // 英文诗
+    ctxT.font = 'italic 300 13px "Georgia", serif';
+    ctxT.fillStyle = 'rgba(255,255,255,0.75)';
+    ctxT.textAlign = 'center';
+    ctxT.fillText('All the waters of the world will reunite;', width * 0.7, height * 0.72);
+    ctxT.fillText('the Arctic Ocean and the Nile', width * 0.7, height * 0.72 + 20);
+    ctxT.fillText('will mingle in the moist clouds.', width * 0.7, height * 0.72 + 40);
 
-    // —— 中文：佛罗伦萨 ——
-    offCtx.font = '300 14px "Songti SC", "SimSun", serif';
-    offCtx.fillStyle = 'rgba(255,255,255,0.85)';
-    offCtx.fillText('窗外是佛罗伦萨', width * 0.15, height * 0.62);
-    offCtx.fillText('桌上是死', width * 0.18, height * 0.62 + 24);
-
-    // —— 英文长句 (需要换行) ——
-    offCtx.font = 'italic 300 13px "Georgia", serif';
-    offCtx.fillStyle = 'rgba(255,255,255,0.75)';
-    offCtx.textAlign = 'center';
-    offCtx.fillText('All the waters of the world will reunite;', width * 0.7, height * 0.72);
-    offCtx.fillText('the Arctic Ocean and the Nile', width * 0.7, height * 0.72 + 20);
-    offCtx.fillText('will mingle in the moist clouds.', width * 0.7, height * 0.72 + 40);
-
-    // —— 中文：春天不远了 ——
-    offCtx.font = '300 14px "Songti SC", "SimSun", serif';
-    offCtx.fillStyle = 'rgba(255,255,255,0.85)';
-    offCtx.fillText('我对自己说 跨过去', width * 0.7, height * 0.88);
-    offCtx.fillText('春天不远了', width * 0.7, height * 0.88 + 24);
-
-    offCtx.shadowBlur = 0;
+    // 跨过去
+    ctxT.font = '300 14px "Songti SC", "SimSun", serif';
+    ctxT.fillStyle = 'rgba(255,255,255,0.85)';
+    ctxT.fillText('我对自己说 跨过去', width * 0.7, height * 0.88);
+    ctxT.fillText('春天不远了', width * 0.7, height * 0.88 + 24);
+    ctxT.shadowBlur = 0;
   }
 
-  // 3. 雾气遮罩画布（用来被手指擦除）
-  const maskCanvas = document.createElement('canvas');
-  maskCanvas.width = width * dpr;
-  maskCanvas.height = height * dpr;
-  const maskCtx = maskCanvas.getContext('2d');
-  maskCtx.scale(dpr, dpr);
-  
-  // 初始化全屏白雾
-  maskCtx.fillStyle = '#ffffff';
-  maskCtx.fillRect(0, 0, width, height);
+  // 3. 加载底图
+  const img = new Image();
+  img.src = './bg.jpg';
 
   // 4. 初始化 WebGL
   const gl = canvas.getContext('webgl', { alpha: false, antialias: true });
@@ -9817,18 +9798,20 @@ function initWaterSplash() {
     varying vec2 v_uv;
     void main() {
       v_uv = a_position * 0.5 + 0.5;
+      // 修正 Y 轴翻转
       gl_Position = vec4(a_position, 0.0, 1.0);
     }
   `;
+
   const fsSource = `
     precision highp float;
     varying vec2 v_uv;
     uniform sampler2D u_photo;
+    uniform sampler2D u_text;
     uniform sampler2D u_mask;
     uniform vec2 u_mouse;
     uniform float u_time;
-    
-    // 简易噪声函数用于水波纹
+
     float noise(vec2 p) {
       return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
     }
@@ -9836,26 +9819,38 @@ function initWaterSplash() {
     void main() {
       vec2 uv = v_uv;
       
-      // 水波纹计算（基于鼠标位置和时间）
+      // 1. 水波扭曲（克制版）
       vec2 p = uv - u_mouse;
       float dist = length(p);
-      float ripple = sin(dist * 40.0 - u_time * 8.0) * exp(-dist * 6.0) * 0.015;
+      float ripple = sin(dist * 50.0 - u_time * 10.0) * exp(-dist * 8.0) * 0.01; // 范围变小，扭曲变弱
       uv += vec2(ripple, ripple);
 
-      // 采样文字底图和雾气
-      vec3 photo = texture2D(u_photo, uv).rgb;
-      float mask = texture2D(u_mask, uv).r; // 1.0 是白雾，0.0 是擦除后的清晰
-      
-      // 处理白雾的质感（带一点噪点）
-      vec3 fogColor = vec3(0.85, 0.90, 0.95);
-      fogColor += noise(uv * 500.0) * 0.05;
-      
-      // 混合：底层照片 + 上层雾气（根据 mask 擦除）
-      vec3 finalColor = mix(photo, fogColor, mask);
-      
-      // 高光折射效果（让水波纹看起来更真实）
-      finalColor += ripple * 5.0;
-      
+      vec2 clampedUv = clamp(uv, 0.001, 0.999);
+
+      // 2. 采样底图、文字层和擦除遮罩
+      vec3 photo = texture2D(u_photo, clampedUv).rgb;
+      vec4 text = texture2D(u_text, clampedUv);
+      float erase = texture2D(u_mask, clampedUv).r; // 0 是雾，1 是清晰
+
+      // 3. 制作雾的质感 (模糊底图 + 噪点)
+      vec2 off = vec2(0.01, 0.01);
+      vec3 blurPhoto = (texture2D(u_photo, clamp(uv + off, 0.001, 0.999)).rgb +
+                        texture2D(u_photo, clamp(uv - off, 0.001, 0.999)).rgb +
+                        texture2D(u_photo, clamp(uv + vec2(off.x, -off.y), 0.001, 0.999)).rgb +
+                        texture2D(u_photo, clamp(uv - vec2(off.x, -off.y), 0.001, 0.999)).rgb + photo * 2.0) / 6.0;
+      float n = noise(uv * 100.0) * 0.1;
+      vec3 fogColor = mix(blurPhoto, vec3(0.72, 0.84, 0.96), 0.5 + n); // 覆盖一层冷白水雾
+
+      // 4. 擦除后的清晰状态：原图 + 文字
+      vec3 cleanColor = photo;
+      cleanColor = mix(cleanColor, text.rgb, text.a);
+
+      // 5. 根据擦除度混合雾气和清晰画面
+      vec3 finalColor = mix(fogColor, cleanColor, erase);
+
+      // 6. 加一点微弱的水波反光 (不要白光)
+      finalColor += ripple * 2.0;
+
       gl_FragColor = vec4(finalColor, 1.0);
     }
   `;
@@ -9880,31 +9875,41 @@ function initWaterSplash() {
   gl.enableVertexAttribArray(a_position);
   gl.vertexAttribPointer(a_position, 2, gl.FLOAT, false, 0, 0);
 
-  // 纹理配置
-  function createTexture() {
-    const tex = gl.createTexture();
+  const texPhoto = gl.createTexture();
+  const texText = gl.createTexture();
+  const texMask = gl.createTexture();
+
+  function updateTextures() {
+    // 底图纹理
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texPhoto);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); // 关键：修正图片上下颠倒
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    
+    // 文字纹理
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, texText);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvasT);
+    
+    // 遮罩纹理 (擦除用)
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, texMask);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvasM);
+  }
+
+  // 设置纹理过滤参数
+  [texPhoto, texText, texMask].forEach(tex => {
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    return tex;
-  }
-
-  const texPhoto = createTexture();
-  const texMask = createTexture();
-
-  function updateTextures() {
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texPhoto);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, offCanvas);
-    
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, texMask);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskCanvas);
-  }
+  });
 
   const u_photo = gl.getUniformLocation(program, "u_photo");
+  const u_text = gl.getUniformLocation(program, "u_text");
   const u_mask = gl.getUniformLocation(program, "u_mask");
   const u_mouse = gl.getUniformLocation(program, "u_mouse");
   const u_time = gl.getUniformLocation(program, "u_time");
@@ -9912,34 +9917,24 @@ function initWaterSplash() {
   let mouse = { x: 0.5, y: 0.5 };
   let lastTouch = null;
 
-  // 处理擦除雾气
+  // 手指擦雾逻辑
   function clearFog(x, y) {
-    maskCtx.globalCompositeOperation = 'destination-out';
-    maskCtx.beginPath();
-    maskCtx.arc(x, y, 35, 0, Math.PI * 2); // 35 是手指擦除的半径
-    maskCtx.fill();
+    ctxM.globalCompositeOperation = 'source-over';
+    ctxM.fillStyle = 'rgba(255,255,255,1)'; // 白色为擦除
+    ctxM.beginPath();
+    // 笔刷半径变小，更细腻
+    ctxM.arc(x, y, 18, 0, Math.PI * 2); 
+    ctxM.fill();
   }
 
-  canvas.addEventListener('touchstart', (e) => {
+  function handleMove(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    const cx = e.touches[0].clientX - rect.left;
-    const cy = e.touches[0].clientY - rect.top;
+    const cx = clientX - rect.left;
+    const cy = clientY - rect.top;
     mouse.x = cx / rect.width;
-    mouse.y = 1.0 - cy / rect.height;
-    clearFog(cx, cy);
-    lastTouch = { x: cx, y: cy };
-    updateTextures();
-  }, { passive: true });
+    mouse.y = 1.0 - (cy / rect.height); // 修正滑动方向的 Y 轴
 
-  canvas.addEventListener('touchmove', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const cx = e.touches[0].clientX - rect.left;
-    const cy = e.touches[0].clientY - rect.top;
-    mouse.x = cx / rect.width;
-    mouse.y = 1.0 - cy / rect.height;
-    
     if (lastTouch) {
-      // 在两点之间插值，确保快速滑动不断层
       const dx = cx - lastTouch.x;
       const dy = cy - lastTouch.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -9951,13 +9946,23 @@ function initWaterSplash() {
       clearFog(cx, cy);
     }
     lastTouch = { x: cx, y: cy };
+  }
+
+  canvas.addEventListener('touchstart', (e) => {
+    const touch = e.touches[0];
+    handleMove(touch.clientX, touch.clientY);
+    updateTextures();
+  }, { passive: true });
+
+  canvas.addEventListener('touchmove', (e) => {
+    const touch = e.touches[0];
+    handleMove(touch.clientX, touch.clientY);
     updateTextures();
   }, { passive: true });
   
   canvas.addEventListener('touchend', () => { lastTouch = null; });
 
-  // 时间轴淡入和复位
-  let startTime = performance.now();
+  // 渲染循环
   function renderLoop(time) {
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0, 0, 0, 1);
@@ -9966,7 +9971,8 @@ function initWaterSplash() {
     gl.uniform1f(u_time, time * 0.001);
     gl.uniform2f(u_mouse, mouse.x, mouse.y);
     gl.uniform1i(u_photo, 0);
-    gl.uniform1i(u_mask, 1);
+    gl.uniform1i(u_text, 1);
+    gl.uniform1i(u_mask, 2);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     requestAnimationFrame(renderLoop);
@@ -9983,6 +9989,7 @@ function initWaterSplash() {
     requestAnimationFrame(renderLoop);
   };
 }
+ 
 </script>
 </body>
 </html>
