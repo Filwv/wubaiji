@@ -2608,89 +2608,41 @@ html,body{
   .music-player-actions{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));}
 }
 
-/* ===== 开屏高级水波纹 ===== */
+/* ===== 真实水面扭曲 ===== */
 @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap');
+
 #splash-screen {
   position: absolute; inset: 0; z-index: 999999;
-  background: #000; 
-  overflow: hidden;
-  transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1), transform 1.2s ease;
+  background: #000; overflow: hidden;
+  transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1), transform 1s ease;
 }
 #splash-screen.hidden {
   opacity: 0; transform: scale(1.05); pointer-events: none;
 }
 
-.water-bg {
-  position: absolute; inset: -10%; 
-  background-size: cover;
-  background-position: center;
-  animation: waterFlow 15s infinite alternate ease-in-out;
+#waterCanvas {
+  width: 100%; height: 100%; display: block;
+  touch-action: none; 
 }
-@keyframes waterFlow {
-  0% { transform: scale(1) translate(0, 0); }
-  50% { transform: scale(1.05) translate(-2%, -1%); }
-  100% { transform: scale(1) translate(1%, 2%); }
-}
-
-.splash-content {
-  position: relative; z-index: 10;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100%; pointer-events: none;
-  color: #fff;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-}
-
-#txt-1 {
-  opacity: 0; transform: translateY(20px); filter: blur(10px);
-  transition: all 1.5s cubic-bezier(0.2, 0.8, 0.4, 1);
-  text-align: center; margin-bottom: 40px;
-}
-#txt-1.show { opacity: 1; transform: translateY(0); filter: blur(0); }
-
-.splash-logo {
-  font-family: "Ma Shan Zheng", "STXingkai", "Xingkai SC", "KaiTi", cursive, serif;
-  font-size: 46px; letter-spacing: 12px; margin-left: 12px; font-weight: 500;
-}
-.splash-subtitle {
-  font-family: -apple-system, sans-serif;
-  font-size: 14px; letter-spacing: 4px; opacity: 0.8; margin-top: 12px; margin-left: 4px;
-}
-
-#txt-2, #txt-3 {
-  font-family: "Songti SC", "SimSun", serif;
-  font-size: 16px; line-height: 1.8; text-align: center; letter-spacing: 2px;
-  opacity: 0; transform: translateY(15px); filter: blur(5px);
-  transition: all 1.2s ease;
-}
-#txt-2 { margin-bottom: 20px; }
-#txt-2.show, #txt-3.show { opacity: 1; transform: translateY(0); filter: blur(0); }
 
 .splash-tip {
   position: absolute; bottom: 40px; left: 0; right: 0;
-  text-align: center; font-size: 11px; color: rgba(255, 255, 255, 0.5);
-  letter-spacing: 3px; font-family: -apple-system, sans-serif;
-  opacity: 0; animation: tipFade 2s ease 5s forwards; pointer-events: none;
+  text-align: center; font-size: 11px; color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 4px; font-family: -apple-system, sans-serif;
+  opacity: 0; animation: tipFade 2s ease 4s forwards; pointer-events: none;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
 }
 @keyframes tipFade { to { opacity: 1; } }
-
-.ripple-circle {
-  position: absolute; width: 20px; height: 20px;
-  margin-left: -10px; margin-top: -10px;
-  border: 2px solid rgba(255,255,255,0.6);
-  border-radius: 50%; pointer-events: none; z-index: 5;
-  animation: rippleAnim 1.5s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
-}
-@keyframes rippleAnim {
-  0% { transform: scale(0.5); opacity: 1; box-shadow: 0 0 10px rgba(255,255,255,0.5); }
-  100% { transform: scale(8); opacity: 0; box-shadow: 0 0 30px rgba(255,255,255,0); }
-}
 </style>
 </head>
 <body>
 
 <div class="phone">
   <!-- 终极水波纹开屏（只留空壳，JS会自动画） -->
-  <div id="splash-screen"></div>
+  <div id="splash-screen">
+  <canvas id="waterCanvas"></canvas>
+  <div class="splash-tip">滑动手指</div>
+</div>
 
   <div class="dynamic-island"></div>
   <div class="screen" id="screen" data-mode="lock">
@@ -9764,102 +9716,235 @@ function pickFriendForPhoto() {
   });
 }
 /* ============================================================
-   开屏水波纹引擎 + 水声（极速版）
+   开屏真实水面扭曲引擎（Canvas 2D 像素级）
    ============================================================ */
 function initWaterSplash() {
   const splash = document.getElementById('splash-screen');
-  if (!splash) return;
+  const canvas = document.getElementById('waterCanvas');
+  if (!splash || !canvas) return;
+  const ctx = canvas.getContext('2d');
 
-  // 1. 注入动画图层和文案
-  splash.innerHTML = `
-    <div class="water-bg" style="background-image: url('./bg.jpg')"></div>
-    <div class="splash-content">
-      <div class="text-stage-1" id="txt-1">
-        <div class="splash-logo">雾 白 机</div>
-        <div class="splash-subtitle">☽ ⋆ 𝖂𝖚𝖇𝖆𝖎 ⋆ ☾</div>
-      </div>
-      <div class="text-stage-2" id="txt-2">窗外是佛罗伦萨  桌上是死</div>
-      <div class="text-stage-3" id="txt-3">
-        我对自己说  跨过去<br>春天不远了
-      </div>
-    </div>
-    <div class="splash-tip">轻触水面 / 滑动手指</div>
-  `;
+  // 渲染分辨率配置：0.5 保证在手机上极速流畅
+  const renderScale = 0.5; 
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  
+  const width = Math.floor(w * renderScale);
+  const height = Math.floor(h * renderScale);
 
-  // 2. 文字出场时间轴
-  setTimeout(() => { document.getElementById('txt-1')?.classList.add('show'); }, 500);
-  setTimeout(() => { document.getElementById('txt-2')?.classList.add('show'); }, 2200);
-  setTimeout(() => { document.getElementById('txt-3')?.classList.add('show'); }, 3800);
+  canvas.width = width;
+  canvas.height = height;
 
-  // 3. Web Audio API 合成真实水滴声
-  let audioCtx = null;
-  function initAudio() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width = width;
+  offCanvas.height = height;
+  const offCtx = offCanvas.getContext('2d');
 
-  function playWaterSound() {
-    if (!audioCtx) return;
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    const freq = 800 + Math.random() * 600;
-    
-    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(freq / 2, audioCtx.currentTime + 0.1);
-    osc.type = 'sine';
-    
-    gain.gain.setValueAtTime(0, audioCtx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-    
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.3);
+  let textStage = 0;
+  let textAlpha = [0, 0, 0]; 
+  let eraseProgress = [0, 0, 0]; 
 
-    if (Math.random() > 0.7) {
-      const bufferSize = audioCtx.sampleRate * 0.2;
-      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-      
-      const noise = audioCtx.createBufferSource();
-      noise.buffer = buffer;
-      const noiseFilter = audioCtx.createBiquadFilter();
-      noiseFilter.type = 'highpass';
-      noiseFilter.frequency.value = 2000;
-      
-      const noiseGain = audioCtx.createGain();
-      noiseGain.gain.setValueAtTime(0.02, audioCtx.currentTime);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
-      
-      noise.connect(noiseFilter);
-      noiseFilter.connect(noiseGain);
-      noiseGain.connect(audioCtx.destination);
-      noise.start();
+  const img = new Image();
+  img.src = './bg.jpg';
+  img.onload = () => {
+    drawBaseImage();
+    requestAnimationFrame(renderLoop);
+  };
+  img.onerror = () => {
+    offCtx.fillStyle = '#2a4b7c';
+    offCtx.fillRect(0, 0, width, height);
+    drawTexts();
+    requestAnimationFrame(renderLoop);
+  };
+
+  function drawBaseImage() {
+    offCtx.clearRect(0, 0, width, height);
+    if (img.complete && img.naturalWidth > 0) {
+      const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
+      const dw = img.naturalWidth * scale;
+      const dh = img.naturalHeight * scale;
+      offCtx.drawImage(img, (width - dw) / 2, (height - dh) / 2, dw, dh);
     }
   }
 
-  // 4. 交互事件
-  splash.addEventListener('touchstart', (e) => {
-    initAudio(); playWaterSound();
-    createRipple(e.touches[0].clientX, e.touches[0].clientY);
-  });
-  splash.addEventListener('mousedown', (e) => {
-    initAudio(); playWaterSound();
-    createRipple(e.clientX, e.clientY);
-  });
+  function drawTexts() {
+    drawBaseImage();
+    offCtx.fillStyle = 'rgba(0,0,0,0.1)';
+    offCtx.fillRect(0, 0, width, height);
 
-  function createRipple(x, y) {
-    const ripple = document.createElement('div');
-    ripple.className = 'ripple-circle';
-    ripple.style.left = x + 'px';
-    ripple.style.top = y + 'px';
-    splash.appendChild(ripple);
-    setTimeout(() => ripple.remove(), 1500);
+    offCtx.textAlign = 'center';
+    offCtx.shadowColor = 'rgba(0,0,0,0.5)';
+    offCtx.shadowBlur = 10 * renderScale;
+
+    // 第一段：雾白机 (屏幕中上)
+    if (textAlpha[0] > 0) {
+      offCtx.globalAlpha = textAlpha[0] * (1 - eraseProgress[0]);
+      offCtx.font = `500 ${Math.floor(40 * renderScale)}px "Ma Shan Zheng", "STXingkai", serif`;
+      offCtx.fillStyle = '#ffffff';
+      offCtx.fillText('雾 白 机', width / 2, height * 0.35);
+      
+      offCtx.font = `${12 * renderScale}px -apple-system, sans-serif`;
+      offCtx.fillStyle = 'rgba(255,255,255,0.8)';
+      offCtx.fillText('☽ ⋆ 𝖂𝖚𝖇𝖆𝖎 ⋆ ☾', width / 2, height * 0.35 + 20 * renderScale);
+    }
+
+    // 第二段：佛罗伦萨 (左下角)
+    if (textAlpha[1] > 0) {
+      offCtx.globalAlpha = textAlpha[1] * (1 - eraseProgress[1]);
+      offCtx.font = `${14 * renderScale}px "Songti SC", "SimSun", serif`;
+      offCtx.fillStyle = 'rgba(255,255,255,0.9)';
+      offCtx.fillText('窗外是佛罗伦萨', width * 0.3, height * 0.65);
+      offCtx.fillText('桌上是死', width * 0.3, height * 0.65 + 22 * renderScale);
+    }
+
+    // 第三段：跨过去 (右下角)
+    if (textAlpha[2] > 0) {
+      offCtx.globalAlpha = textAlpha[2] * (1 - eraseProgress[2]);
+      offCtx.font = `${14 * renderScale}px "Songti SC", "SimSun", serif`;
+      offCtx.fillStyle = 'rgba(255,255,255,0.9)';
+      offCtx.fillText('我对自己说', width * 0.7, height * 0.75);
+      offCtx.fillText('跨过去 春天不远了', width * 0.7, height * 0.75 + 22 * renderScale);
+    }
+    
+    offCtx.globalAlpha = 1.0;
   }
+
+  let imgData = offCtx.getImageData(0, 0, width, height);
+  let pixels = imgData.data;
+  
+  let buffer1 = new Float32Array(width * height);
+  let buffer2 = new Float32Array(width * height);
+
+  function disturb(cx, cy, radius, strength) {
+    for (let y = Math.max(0, cy - radius); y < Math.min(height, cy + radius); y++) {
+      for (let x = Math.max(0, cx - radius); x < Math.min(width, cx + radius); x++) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < radius) {
+          const factor = Math.cos((dist / radius) * Math.PI / 2);
+          buffer2[y * width + x] = -strength * factor;
+        }
+      }
+    }
+  }
+
+  let isDragging = false;
+  let lastX = 0, lastY = 0;
+
+  canvas.addEventListener('touchstart', (e) => {
+    isDragging = true;
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    lastX = Math.floor((touch.clientX - rect.left) * renderScale);
+    lastY = Math.floor((touch.clientY - rect.top) * renderScale);
+    disturb(lastX, lastY, 20, 40);
+  }, { passive: true });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((touch.clientX - rect.left) * renderScale);
+    const y = Math.floor((touch.clientY - rect.top) * renderScale);
+    
+    const dist = Math.sqrt((x - lastX) ** 2 + (y - lastY) ** 2);
+    if (dist > 2) {
+      disturb(x, y, Math.floor(15 + dist * 0.5), Math.floor(30 + dist));
+      lastX = x; lastY = y;
+    }
+  }, { passive: true });
+
+  canvas.addEventListener('touchend', () => { isDragging = false; });
+  
+  canvas.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    const rect = canvas.getBoundingClientRect();
+    disturb(Math.floor((e.clientX - rect.left) * renderScale), Math.floor((e.clientY - rect.top) * renderScale), 20, 40);
+  });
+  canvas.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const rect = canvas.getBoundingClientRect();
+    disturb(Math.floor((e.clientX - rect.left) * renderScale), Math.floor((e.clientY - rect.top) * renderScale), 15, 30);
+  });
+  window.addEventListener('mouseup', () => { isDragging = false; });
+
+  // 时间轴控制
+  setTimeout(() => { textStage = 1; }, 800);
+  setTimeout(() => { textStage = 2; }, 2200);
+  setTimeout(() => { textStage = 3; }, 3600);
+
+  function eraseText(index) {
+    let p = 0;
+    const timer = setInterval(() => {
+      p += 0.05;
+      eraseProgress[index] = Math.min(1, p);
+      if (p >= 1) clearInterval(timer);
+    }, 40);
+  }
+
+  setTimeout(() => { eraseText(0); }, 3000);
+  setTimeout(() => { eraseText(1); }, 4800);
+  setTimeout(() => { eraseText(2); }, 5600);
+
+  function updateTextAlpha() {
+    if (textStage >= 1 && textAlpha[0] < 1) textAlpha[0] += 0.02;
+    if (textStage >= 2 && textAlpha[1] < 1) textAlpha[1] += 0.02;
+    if (textStage >= 3 && textAlpha[2] < 1) textAlpha[2] += 0.02;
+  }
+
+  function renderLoop() {
+    updateTextAlpha();
+    if (textStage > 0) {
+      drawTexts();
+      imgData = offCtx.getImageData(0, 0, width, height);
+      pixels = imgData.data;
+    }
+
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const idx = y * width + x;
+        let val = (buffer1[idx - 1] + buffer1[idx + 1] + buffer1[idx - width] + buffer1[idx + width]) / 2 - buffer2[idx];
+        val *= 0.96;
+        buffer2[idx] = val;
+      }
+    }
+
+    let temp = buffer1;
+    buffer1 = buffer2;
+    buffer2 = temp;
+
+    const outputData = ctx.createImageData(width, height);
+    const outPixels = outputData.data;
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = y * width + x;
+        const wave = buffer1[idx];
+        
+        const srcX = Math.max(0, Math.min(width - 1, x + Math.floor(wave * 0.03)));
+        const srcY = Math.max(0, Math.min(height - 1, y + Math.floor(wave * 0.03)));
+        
+        const destIdx = idx * 4;
+        const srcIdx = (srcY * width + srcX) * 4;
+        const highlight = Math.max(0, wave * 0.5); 
+
+        outPixels[destIdx] = pixels[srcIdx] + highlight;
+        outPixels[destIdx + 1] = pixels[srcIdx + 1] + highlight;
+        outPixels[destIdx + 2] = pixels[srcIdx + 2] + highlight;
+        outPixels[destIdx + 3] = pixels[srcIdx + 3];
+      }
+    }
+
+    ctx.putImageData(outputData, 0, 0);
+    requestAnimationFrame(renderLoop);
+  }
+
+  setInterval(() => {
+    if (!isDragging && Math.random() > 0.5) {
+      disturb(Math.random() * width, Math.random() * height, 15, 20);
+    }
+  }, 2000);
 }
 </script>
 </body>
