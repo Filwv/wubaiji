@@ -2660,15 +2660,13 @@ html,body{
 /* 👇新增：ENTER 按钮样式 */
 .splash-enter-btn {
   position: absolute;
-  bottom: 20%; /* 位置可以自行微调 */
-  left: 50%;
-  transform: translateX(-50%);
+  top: 15%; /* 👈 移到屏幕上方 */
+  right: 24px; /* 👈 靠右对齐，距离右边 24px */
   font-family: "Times New Roman", Georgia, serif; /* 图二同款复古衬线字体 */
-  font-size: 22px;
+  font-size: 20px; /* 稍微缩小一点，在右上角更精致 */
   color: #ffffff;
-  letter-spacing: 10px; /* 较宽的字间距 */
-  margin-left: 10px; /* 补偿字间距导致的视觉偏移 */
-  padding: 12px 30px;
+  letter-spacing: 8px; /* 字间距稍微收一点 */
+  padding: 12px 20px;
   cursor: pointer;
   z-index: 20;
   opacity: 0;
@@ -2682,7 +2680,8 @@ html,body{
 }
 .splash-enter-btn:active {
   opacity: 0.6;
-  transform: translateX(-50%) scale(0.92); /* 点击时的微小缩放反馈 */
+  /* 👈 去掉了原来的 translateX，只保留缩放 */
+  transform: scale(0.92); 
 }
 </style>
 </head>
