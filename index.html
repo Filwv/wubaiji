@@ -9716,7 +9716,7 @@ function pickFriendForPhoto() {
   });
 }
  /* ============================================================
-   开屏真实水面扭曲引擎（高清纯净版 Canvas 2D）
+   开屏真实水面扭曲引擎（极致进阶版：逐字浮现+强力磨砂水波）
    ============================================================ */
 function initWaterSplash() {
   const splash = document.getElementById('splash-screen');
@@ -9724,9 +9724,8 @@ function initWaterSplash() {
   if (!splash || !canvas) return;
   const ctx = canvas.getContext('2d');
 
-  // 1. 彻底解决模糊：使用全高清渲染
   const dpr = window.devicePixelRatio || 1;
-  const renderScale = dpr > 1 ? dpr * 0.8 : 1.0; // 既保证清晰，又不会让手机彻底卡死
+  const renderScale = dpr > 1 ? dpr * 0.8 : 1.0;
   
   const w = window.innerWidth;
   const h = window.innerHeight;
@@ -9741,24 +9740,19 @@ function initWaterSplash() {
   offCanvas.height = height;
   const offCtx = offCanvas.getContext('2d');
 
-  let textStage = 0;
-  let textAlpha = [0, 0, 0]; 
-  let eraseProgress = [0, 0, 0]; 
-
   const img = new Image();
   img.src = './bg.jpg';
-  img.onload = () => {
-    drawTexts(); // 首次绘制
-  };
-  img.onerror = () => {
-    offCtx.fillStyle = '#2a4b7c';
-    offCtx.fillRect(0, 0, width, height);
-    drawTexts();
-  };
+  
+  // 记录开屏时间，用于计算文字动画
+  const startTime = performance.now();
 
-  // 绘制底图与文字
-  function drawTexts() {
+  // ==========================================
+  // 1. 核心动画：逐字浮现与淡出
+  // ==========================================
+  function drawTexts(currentTime) {
     offCtx.clearRect(0, 0, width, height);
+    
+    // 画背景
     if (img.complete && img.naturalWidth > 0) {
       const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
       const dw = img.naturalWidth * scale;
@@ -9769,54 +9763,87 @@ function initWaterSplash() {
       offCtx.fillRect(0, 0, width, height);
     }
 
-    // 添加一层淡淡的深色遮罩，让文字看得清
+    // 深色遮罩
     offCtx.fillStyle = 'rgba(0,0,0,0.15)';
     offCtx.fillRect(0, 0, width, height);
 
     offCtx.textAlign = 'center';
     offCtx.shadowColor = 'rgba(0,0,0,0.6)';
-    offCtx.shadowBlur = 12 * renderScale;
+    offCtx.shadowBlur = 10 * renderScale;
 
-    // 第一段：雾白机 (居中偏上)
-    if (textAlpha[0] > 0) {
-      offCtx.globalAlpha = textAlpha[0] * (1 - eraseProgress[0]);
-      offCtx.font = `500 ${Math.floor(40 * renderScale)}px "Ma Shan Zheng", "STXingkai", serif`;
-      offCtx.fillStyle = '#ffffff';
-      offCtx.fillText('雾 白 机', width / 2, height * 0.35);
+    const time = currentTime - startTime;
+
+    // 通用绘制单段文字的函数（支持逐字跳跃）
+    function renderAnimatedText(text, x, y, startTimeMs, fontSize, fontFamily, isMainTitle = false) {
+      const charDelay = 80; // 每个字出现的时间间隔
+      const fadeInDuration = 600; // 单字淡入耗时
       
-      offCtx.font = `${12 * renderScale}px -apple-system, sans-serif`;
-      offCtx.fillStyle = 'rgba(255,255,255,0.85)';
-      offCtx.fillText('☽ ⋆ 𝖂𝖚𝖇𝖆𝖎 ⋆ ☾', width / 2, height * 0.35 + 24 * renderScale);
+      // 进入淡出阶段的整体偏移（在第5秒左右开始擦除）
+      let globalFadeOut = 1;
+      const fadeOutStart = 5000 + (y > height * 0.6 ? 1000 : 0); // 下半部分文字晚点消失
+      if (time > fadeOutStart) {
+        globalFadeOut = Math.max(0, 1 - (time - fadeOutStart) / 1500);
+      }
+
+      offCtx.font = `${isMainTitle ? '500' : '400'} ${fontSize * renderScale}px ${fontFamily}`;
+      offCtx.fillStyle = '#ffffff';
+
+      let currentX = x - (text.length * fontSize * renderScale * 0.5); // 估算起始 X 坐标
+      // 针对不同字体宽度的微调
+      if (isMainTitle) currentX = x - (text.length * (fontSize * renderScale + 8 * renderScale) * 0.5);
+
+      for (let i = 0; i < text.length; i++) {
+        const charTime = time - startTimeMs - i * charDelay;
+        
+        if (charTime > 0) {
+          const progress = Math.min(1, charTime / fadeInDuration);
+          // 缓动函数 (easeOutCubic)
+          const ease = 1 - Math.pow(1 - progress, 3);
+          
+          // 透明度：淡入 * 整体淡出
+          offCtx.globalAlpha = ease * globalFadeOut;
+          
+          // Y轴位移：从下方 15px 处跳跃上来
+          const offsetY = (1 - ease) * 15 * renderScale;
+          
+          offCtx.fillText(text[i], currentX, y + offsetY);
+        }
+        
+        // 计算下一个字的 X 坐标
+        const charWidth = offCtx.measureText(text[i]).width;
+        const extraSpacing = isMainTitle ? 12 * renderScale : 2 * renderScale; // 主标题字间距大一点
+        currentX += charWidth + extraSpacing;
+      }
     }
 
-    // 第二段：佛罗伦萨 (左下角)
-    if (textAlpha[1] > 0) {
-      offCtx.globalAlpha = textAlpha[1] * (1 - eraseProgress[1]);
-      offCtx.font = `${14 * renderScale}px "Songti SC", "SimSun", serif`;
-      offCtx.fillStyle = 'rgba(255,255,255,0.9)';
-      offCtx.fillText('窗外是佛罗伦萨', width * 0.3, height * 0.65);
-      offCtx.fillText('桌上是死', width * 0.3, height * 0.65 + 22 * renderScale);
-    }
-
-    // 第三段：跨过去 (右下角)
-    if (textAlpha[2] > 0) {
-      offCtx.globalAlpha = textAlpha[2] * (1 - eraseProgress[2]);
-      offCtx.font = `${14 * renderScale}px "Songti SC", "SimSun", serif`;
-      offCtx.fillStyle = 'rgba(255,255,255,0.9)';
-      offCtx.fillText('我对自己说', width * 0.7, height * 0.75);
-      offCtx.fillText('跨过去 春天不远了', width * 0.7, height * 0.75 + 22 * renderScale);
+    // 渲染四段文字
+    if (time > 800) {
+      renderAnimatedText('雾 白 机', width / 2, height * 0.35, 800, 38, '"Ma Shan Zheng", "STXingkai", serif', true);
+      renderAnimatedText('☽ ⋆ 𝖂𝖚𝖇𝖆𝖎 ⋆ ☾', width / 2, height * 0.35 + 35 * renderScale, 1500, 12, '-apple-system, sans-serif', false);
     }
     
+    if (time > 2200) {
+      renderAnimatedText('窗外是佛罗伦萨', width * 0.3, height * 0.65, 2200, 14, '"Songti SC", "SimSun", serif', false);
+      renderAnimatedText('桌上是死', width * 0.3, height * 0.65 + 24 * renderScale, 2800, 14, '"Songti SC", "SimSun", serif', false);
+    }
+
+    if (time > 3800) {
+      renderAnimatedText('我对自己说', width * 0.68, height * 0.75, 3800, 14, '"Songti SC", "SimSun", serif', false);
+      renderAnimatedText('跨过去 春天不远了', width * 0.68, height * 0.75 + 24 * renderScale, 4400, 14, '"Songti SC", "SimSun", serif', false);
+    }
+
     offCtx.globalAlpha = 1.0;
   }
 
+  // ==========================================
   // 2. 水波物理缓存
-  let imgData = offCtx.getImageData(0, 0, width, height);
+  // ==========================================
+  let imgData = offCtx.createImageData(width, height); // 初始空数据
   let pixels = imgData.data;
   let buffer1 = new Float32Array(width * height);
   let buffer2 = new Float32Array(width * height);
 
-  // 制造水波（范围更小，更细腻）
+  // 制造水波：调整半径和强度，模拟磨砂扭曲
   function disturb(cx, cy, radius, strength) {
     for (let y = Math.max(0, cy - radius); y < Math.min(height, cy + radius); y++) {
       for (let x = Math.max(0, cx - radius); x < Math.min(width, cx + radius); x++) {
@@ -9825,13 +9852,16 @@ function initWaterSplash() {
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < radius) {
           const factor = Math.cos((dist / radius) * Math.PI / 2);
-          buffer2[y * width + x] = -strength * factor;
+          // 叠加波纹
+          buffer2[y * width + x] += -strength * factor;
         }
       }
     }
   }
 
-  // 3. 交互事件
+  // ==========================================
+  // 3. 交互事件（加大水波范围，磨砂感）
+  // ==========================================
   let isDragging = false;
   let lastX = 0, lastY = 0;
 
@@ -9840,8 +9870,8 @@ function initWaterSplash() {
     const rect = canvas.getBoundingClientRect();
     lastX = Math.floor((e.touches[0].clientX - rect.left) * renderScale);
     lastY = Math.floor((e.touches[0].clientY - rect.top) * renderScale);
-    // 初始点击范围变小
-    disturb(lastX, lastY, 15, 30);
+    // 点击时产生一个较大范围的水波（半径60，力量80）
+    disturb(lastX, lastY, 60, 100);
   }, { passive: true });
 
   canvas.addEventListener('touchmove', (e) => {
@@ -9851,12 +9881,13 @@ function initWaterSplash() {
     const y = Math.floor((e.touches[0].clientY - rect.top) * renderScale);
     
     const dist = Math.sqrt((x - lastX) ** 2 + (y - lastY) ** 2);
-    if (dist > 2) {
-      // 滑动时的水波范围也变小
-      disturb(x, y, 10, 25);
+    if (dist > 3) {
+      // 滑动时产生一串连续的较大水波（半径40，力量70）
+      disturb(x, y, 40, 70);
       lastX = x; lastY = y;
     }
   }, { passive: true });
+  
   canvas.addEventListener('touchend', () => { isDragging = false; });
   
   // 鼠标兼容
@@ -9865,63 +9896,34 @@ function initWaterSplash() {
     const rect = canvas.getBoundingClientRect();
     lastX = Math.floor((e.clientX - rect.left) * renderScale);
     lastY = Math.floor((e.clientY - rect.top) * renderScale);
-    disturb(lastX, lastY, 15, 30);
+    disturb(lastX, lastY, 60, 100);
   });
   canvas.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
     const rect = canvas.getBoundingClientRect();
     const x = Math.floor((e.clientX - rect.left) * renderScale);
     const y = Math.floor((e.clientY - rect.top) * renderScale);
-    disturb(x, y, 10, 25);
+    disturb(x, y, 40, 70);
     lastX = x; lastY = y;
   });
   window.addEventListener('mouseup', () => { isDragging = false; });
 
-  // 4. 文字时间轴
-  setTimeout(() => { textStage = 1; }, 800);
-  setTimeout(() => { textStage = 2; }, 2200);
-  setTimeout(() => { textStage = 3; }, 3600);
-  setTimeout(() => { eraseText(0); }, 3000);
-  setTimeout(() => { eraseText(1); }, 4800);
-  setTimeout(() => { eraseText(2); }, 5600);
-
-  function eraseText(index) {
-    let p = 0;
-    const timer = setInterval(() => {
-      p += 0.05;
-      eraseProgress[index] = Math.min(1, p);
-      if (p >= 1) clearInterval(timer);
-    }, 40);
-  }
-
-  function updateTextAlpha() {
-    let changed = false;
-    if (textStage >= 1 && textAlpha[0] < 1) { textAlpha[0] += 0.02; changed = true; }
-    if (textStage >= 2 && textAlpha[1] < 1) { textAlpha[1] += 0.02; changed = true; }
-    if (textStage >= 3 && textAlpha[2] < 1) { textAlpha[2] += 0.02; changed = true; }
-    
-    // 如果有文字正在浮现或擦除，重新绘制底图并更新像素数据
-    if (changed || (eraseProgress[0] > 0 && eraseProgress[0] < 1) || (eraseProgress[1] > 0 && eraseProgress[1] < 1) || (eraseProgress[2] > 0 && eraseProgress[2] < 1)) {
-      drawTexts();
-      imgData = offCtx.getImageData(0, 0, width, height);
-      pixels = imgData.data;
-    }
-  }
-
-  // 5. 核心渲染循环
-  function renderLoop() {
-    updateTextAlpha();
+  // ==========================================
+  // 4. 渲染循环
+  // ==========================================
+  function renderLoop(currentTime) {
+    // 重绘文字层
+    drawTexts(currentTime);
+    imgData = offCtx.getImageData(0, 0, width, height);
+    pixels = imgData.data;
 
     // 物理计算
     for (let y = 1; y < height - 1; y++) {
       for (let x = 1; x < width - 1; x++) {
         const idx = y * width + x;
-        // 波的计算公式
         let val = (buffer1[idx - 1] + buffer1[idx + 1] + buffer1[idx - width] + buffer1[idx + width]) / 2 - buffer2[idx];
-        
-        // ★ 关键调整：阻尼从 0.96 改为 0.85，衰减极快，荡漾几下就停！
-        val *= 0.85; 
-        
+        // 阻尼调至 0.94，让波纹多荡漾一会儿，但最终会停
+        val *= 0.94; 
         buffer2[idx] = val;
       }
     }
@@ -9938,10 +9940,10 @@ function initWaterSplash() {
         const idx = y * width + x;
         const wave = buffer1[idx];
         
-        // 计算偏移（限制最大偏移，防止画面撕裂）
-        const maxShift = 5 * renderScale;
-        let shiftX = Math.floor(wave * 0.02);
-        let shiftY = Math.floor(wave * 0.02);
+        // 提升扭曲幅度，产生“磨砂折射”感
+        const maxShift = 15 * renderScale;
+        let shiftX = Math.floor(wave * 0.08);
+        let shiftY = Math.floor(wave * 0.08);
         
         shiftX = Math.max(-maxShift, Math.min(maxShift, shiftX));
         shiftY = Math.max(-maxShift, Math.min(maxShift, shiftY));
@@ -9952,7 +9954,7 @@ function initWaterSplash() {
         const destIdx = idx * 4;
         const srcIdx = (srcY * width + srcX) * 4;
         
-        // ★ 关键调整：取消高光！纯折射！
+        // 纯折射，无高光
         outPixels[destIdx] = pixels[srcIdx];
         outPixels[destIdx + 1] = pixels[srcIdx + 1];
         outPixels[destIdx + 2] = pixels[srcIdx + 2];
@@ -9966,13 +9968,9 @@ function initWaterSplash() {
 
   // 启动
   if (img.complete) {
-    drawTexts();
     requestAnimationFrame(renderLoop);
   } else {
-    img.onload = () => {
-      drawTexts();
-      requestAnimationFrame(renderLoop);
-    };
+    img.onload = () => requestAnimationFrame(renderLoop);
   }
 }
 </script>
