@@ -2657,25 +2657,6 @@ html,body{
   text-shadow: 0 2px 10px rgba(0,0,0,0.8);
 }
 @keyframes tipFade { to { opacity: 1; } }
-/* ENTER 按钮样式 */
-.enter-btn {
-  position: absolute;
-  bottom: 80px; left: 50%; transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.85);
-  border: none; color: #1a1a1c;
-  font-size: 14px; font-weight: 600; letter-spacing: 3px;
-  padding: 12px 40px; border-radius: 24px;
-  z-index: 1000000; cursor: pointer;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  transition: transform .3s, background .2s;
-  opacity: 0; animation: btnFadeIn 1s ease 1.5s forwards;
-}
-.enter-btn:active { transform: translateX(-50%) scale(0.92); background: #ffffff; }
-@keyframes btnFadeIn { to { opacity: 1; } }
-
-/* 开屏状态下的状态栏颜色 */
-.screen[data-mode="splash"] .statusbar { color: #ffffff; }
-.screen[data-mode="splash"] .statusbar svg { fill: #ffffff; stroke: #ffffff; }
 </style>
 </head>
 <body>
@@ -2683,15 +2664,18 @@ html,body{
 <div class="phone">
   <!-- 终极水波纹开屏（只留空壳，JS会自动画） -->
   <div id="splash-screen">
+  <!-- 顶层固定的主标题，不参与刮雾和水波 -->
   <div class="splash-title-layer">
     <div class="splash-logo">雾 白 机</div>
     <div class="splash-subtitle">☽ ⋆ 𝖂𝖚𝖇𝖆𝖎 ⋆ ☾</div>
   </div>
-  <canvas id="waterCanvas"></canvas>
-  <div class="splash-tip">TOUCH THE GLASS</div>
-  <button class="enter-btn" id="enterBtn">ENTER</button
-</div>
   
+  <!-- 底层：负责水波和刮雾的 Canvas -->
+  <canvas id="waterCanvas"></canvas>
+  
+  <div class="splash-tip">TOUCH THE GLASS</div>
+</div>
+
   <div class="dynamic-island"></div>
   <div class="screen" id="screen" data-mode="lock">
 
@@ -3425,7 +3409,6 @@ const state = {
     homeWallpaper: null,
     lockPassword: DEFAULT_LOCK_PASSWORD,
     lockPasswordEnabled: true,
-    lockScreenEnabled: true,
     autoLikeComments: true,
     layoutSeededV2: false
   },
@@ -9138,7 +9121,7 @@ function buildThemeJson() {
   if (Object.keys(iconObj).length) out.icons = iconObj;
   if (state.theme.font && state.theme.font.url) out.font = { name: state.theme.font.name || '自定义字体', url: state.theme.font.url };
   const wallpapers = {};
-    if (state.settings.lockScreenEnabled && state.settings.lockWallpaper) wallpapers.lock = state.settings.lockWallpaper;
+  if (state.settings.lockWallpaper) wallpapers.lock = state.settings.lockWallpaper;
   if (state.settings.homeWallpaper) wallpapers.home = state.settings.homeWallpaper;
   if (Object.keys(wallpapers).length) out.wallpapers = wallpapers;
   const widgetImages = {};
@@ -9192,7 +9175,7 @@ async function applyJsonTheme(json, presetName) {
   }
   if (typeof json.lockWallpaper === 'string' && json.lockWallpaper) lockWp = json.lockWallpaper;
   if (typeof json.homeWallpaper === 'string' && json.homeWallpaper) homeWp = json.homeWallpaper;
-    if (lockWp !== null) {     if (state.settings.lockScreenEnabled) {       state.settings.lockWallpaper = lockWp || null;     } else if (lockWp) {       toast('当前未开启锁屏，导入的锁屏壁纸已忽略');     }   }
+  if (lockWp !== null) state.settings.lockWallpaper = lockWp || null;
   if (homeWp !== null) state.settings.homeWallpaper = homeWp || null;
   if (json.widgetImages && typeof json.widgetImages === 'object') {
     Object.keys(WIDGET_IMAGE_FIELDS).forEach(type => {
@@ -9447,8 +9430,7 @@ function renderSettingsApp() {
   $('#resetAll').onclick = () => {
     if (!confirm('会清掉全部数据，确定吗？')) return;
     if (!confirm('真的确定？')) return;
-    state.settings = { lockWallpaper: null, homeWallpaper: null, lockPassword: DEFAULT_LOCK_PASSWORD, lockPasswordEnabled: true, lockScreenEnabled: true,
-autoLikeComments: true, layoutSeededV2: false };
+    state.settings = { lockWallpaper: null, homeWallpaper: null, lockPassword: DEFAULT_LOCK_PASSWORD, lockPasswordEnabled: true, autoLikeComments: true, layoutSeededV2: false };
     state.user = { name: '我', avatar: null, wxid: genWxid(), wallet: 0, momentsCover: null };
     state.moments = [];
     state.apis = []; state.activeApiId = null;
@@ -9468,20 +9450,13 @@ autoLikeComments: true, layoutSeededV2: false };
 }
 function renderLockPwdSettings() {
   appView.innerHTML = `
-    <div class="app-header"><button class="back-btn" id="lockPwdBack">‹ 设置</button><h1>锁屏设置</h1><button class="header-btn" style="visibility:hidden;">·</button></div>
+    <div class="app-header"><button class="back-btn" id="lockPwdBack">‹ 设置</button><h1>锁屏密码</h1><button class="header-btn" style="visibility:hidden;">·</button></div>
     <div class="app-body">
-      <div class="card"><div class="list-item" style="cursor:default;"><div class="li-main"><div class="li-title">显示锁屏界面</div><div class="li-sub">关闭后，点击开屏 ENTER 直接进入主屏</div></div><div class="switch ${state.settings.lockScreenEnabled ? 'on' : ''}" id="lockScreenSwitch"></div></div></div>
       <div class="card"><div class="list-item" style="cursor:default;"><div class="li-main"><div class="li-title">开启锁屏密码</div><div class="li-sub">开启后，进入小手机需要输入 4 位密码</div></div><div class="switch ${state.settings.lockPasswordEnabled ? 'on' : ''}" id="lockPwdSwitch"></div></div></div>
       <div class="card"><div class="list-item" id="changePwdBtn"><div class="li-main"><div class="li-title">修改密码</div><div class="li-sub">设置一个新的 4 位数字密码</div></div><span class="li-chev">›</span></div></div>
       <p class="hint">默认密码为 1234。忘记密码时，可在解锁界面点击"恢复默认"重置为 1234。</p>
     </div>`;
   $('#lockPwdBack').onclick = () => { settingsSubView = 'main'; renderSettingsApp(); };
-  $('#lockScreenSwitch').onclick = () => {
-    state.settings.lockScreenEnabled = !state.settings.lockScreenEnabled;
-    save();
-    const sw = $('#lockScreenSwitch'); if (sw) sw.classList.toggle('on', state.settings.lockScreenEnabled);
-    toast(state.settings.lockScreenEnabled ? '锁屏界面已开启' : '锁屏界面已关闭');
-  };
   $('#lockPwdSwitch').onclick = () => {
     state.settings.lockPasswordEnabled = !state.settings.lockPasswordEnabled;
     save();
@@ -9510,7 +9485,6 @@ async function load() {
       state.settings = Object.assign({}, state.settings, s.settings);
       if (typeof state.settings.lockPassword !== 'string' || !/^\d{4}$/.test(state.settings.lockPassword)) state.settings.lockPassword = DEFAULT_LOCK_PASSWORD;
       if (typeof state.settings.lockPasswordEnabled !== 'boolean') state.settings.lockPasswordEnabled = true;
-      if (typeof state.settings.lockScreenEnabled !== 'boolean') state.settings.lockScreenEnabled = true;
       if (typeof state.settings.autoLikeComments !== 'boolean') state.settings.autoLikeComments = true;
       if (typeof state.settings.layoutSeededV2 !== 'boolean') state.settings.layoutSeededV2 = false;
     }
@@ -9660,21 +9634,7 @@ async function load() {
     if (sessionUnlocked) { unlock(); return; }
     await tryUnlockWithPassword();
   });
-      $('#toLockBtn').addEventListener('click', () => {
-    if (state.settings.lockScreenEnabled) {
-      goToLock();
-    } else {
-      // 如果未开启锁屏，下拉直接回到开屏动画
-      const splashEl = $('#splash-screen');
-      if (splashEl) {
-        splashEl.style.display = 'flex';
-        splashEl.classList.remove('hidden');
-        $('#screen').dataset.mode = 'splash';
-        $('#homescreen').classList.remove('active');
-        $('#lockscreen').classList.add('hidden'); // 🌟 新增这行，保证底层干净
-      }
-    }
-  });
+  $('#toLockBtn').addEventListener('click', () => goToLock());
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -9742,25 +9702,14 @@ async function load() {
     });
   });
 
-  // === 开屏 ENTER 按钮控制 ===
-  const enterBtn = $('#enterBtn');
-  if (enterBtn) {
-    enterBtn.addEventListener('click', () => {
-      const splashEl = $('#splash-screen');
-      if (splashEl) {
-        splashEl.classList.add('hidden');
-        setTimeout(() => { splashEl.style.display = 'none'; }, 800); 
-        
-        if (state.settings.lockScreenEnabled) {
-          $('#screen').dataset.mode = 'lock';
-          $('#lockscreen').classList.remove('hidden');
-          $('#homescreen').classList.remove('active');
-        } else {
-          unlock();
-        }
-      }
-    });
-  }
+        // === 开屏动画：6秒后退场 ===
+  setTimeout(() => {
+    const splashEl = $('#splash-screen');
+    if (splashEl) {
+      splashEl.classList.add('hidden');
+      setTimeout(() => splashEl.remove(), 1200);
+    }
+  }, 6000); 
 })();
 
 async function handleCameraCapture(dataURL) {
