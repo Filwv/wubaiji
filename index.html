@@ -2369,25 +2369,31 @@ html,body{
   text-align:center;
   mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 78%, transparent 100%);
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 78%, transparent 100%);
+  touch-action:none;
+  -webkit-user-select:none;user-select:none;
+  cursor:grab;
 }
+.music-lyrics:active{cursor:grabbing;}
 .music-lyrics-inner{
-  transition:transform .6s cubic-bezier(.32,.72,0,1);
+  will-change:transform;
   padding:0 8px;
-}
-/* ★ 无时间戳滚动时禁用过渡，让 rAF 直接控制 */
-.music-lyrics-inner.no-transition{
-  transition: none !important;
 }
 .music-lyric-line{
+  min-height:42px;
+  display:flex;align-items:center;justify-content:center;
   font-size:14px;color:#c4c4ca;
-  line-height:2.4;letter-spacing:.2px;
-  padding:0 8px;
-  transition:color .3s, font-size .3s;
+  letter-spacing:.2px;
+  line-height:1.35;
+  padding:6px 12px;
+  transition:color .3s, transform .3s;
   cursor:pointer;
   word-break:break-word;
+  transform:scale(.94);
+  transform-origin:center center;
 }
 .music-lyric-line.active{
-  color:#1a1a1c;font-size:16px;font-weight:600;
+  color:#1a1a1c;font-weight:600;
+  transform:scale(1.06);
 }
 .music-lyrics-empty{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -2815,6 +2821,17 @@ function genWxid() {
   let s = 'wxid_';
   for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
   return s;
+}
+
+/* ★ 辅助：统一解析 API 返回的时长（兼容毫秒/秒） */
+function normalizeDuration(item) {
+  if (!item) return 0;
+  let sec = item.duration || item.interval || item.dt || item.songDuration || 0;
+  if (typeof sec === 'string') sec = parseFloat(sec);
+  if (isNaN(sec)) return 0;
+  // 网易云、QQ音乐大部分返回毫秒，如果大于 10000 认为是毫秒，转为秒
+  if (sec > 10000) sec = Math.floor(sec / 1000);
+  return sec;
 }
 
 const MARKER_COLORS = [
@@ -3482,12 +3499,8 @@ let _playerRenderingLock = false;
 let _onlineSearchResults = [];
 let _onlineSearchKeyword = '';
 
-/* ★ 无时间戳歌词：匀速滚动状态 */
-let _lyricsScrollRafId = null;
-let _lyricsScrollPos = 0;
-let _lyricsScrollLastTs = 0;
-let _lyricsUserDragging = false;
-let _lyricsRestoreTimer = null;
+/* ★ 歌词滚动控制器（时间戳 / 无时间戳 统一处理） */
+let _lyricsCtrl = null;
 
 let sessionUnlocked = false;
 
@@ -3527,18 +3540,60 @@ const player = {
         this.notify();
       }
     });
-    a.addEventListener('loadedmetadata', () => {
-      if (isFinite(a.duration) && a.duration > 0) this.duration = a.duration;
+    const syncDuration = () => {
+      if (isFinite(a.duration) && a.duration > 0) {
+        this.duration = a.duration;
+        const track = this.getTrack();
+        // 如果发现数据库里保存的时长和实际时长差异大于 1 秒，自动修正并保存
+        if (track && Math.abs((track.duration || 0) - a.duration) > 1) {
+          track.duration = a.duration;
+          save();
+          // 实时更新当前页面上对应歌曲的时长文字
+          const items = document.querySelectorAll(`[data-track-id="${track.id}"]`);
+          items.forEach(item => {
+            const durEl = item.querySelector('.music-track-dur') || item.querySelector('.music-recent-dur');
+            if (durEl) durEl.textContent = fmtSec(a.duration);
+          });
+        }
+      }
       this.notify();
-    });
-    a.addEventListener('durationchange', () => {
-      if (isFinite(a.duration) && a.duration > 0) this.duration = a.duration;
-      this.notify();
-    });
+    };
+    a.addEventListener('loadedmetadata', syncDuration);
+    a.addEventListener('durationchange', syncDuration);
     a.addEventListener('play', () => { this.playing = true; this.notify(); });
     a.addEventListener('pause', () => { this.playing = false; this.notify(); });
     a.addEventListener('ended', () => { this.handleEnded(); });
-    a.addEventListener('error', () => { this.playing = false; this.notify(); });
+
+    this.setupMediaSession();
+  },
+
+  subscribe(fn) {
+        a.addEventListener('error', async () => {
+      this.playing = false;
+      const t = this.getTrack();
+      const now = Date.now();
+      const canRetry = t && t.source === 'online' && t.onlineId
+                    && !this._urlRefreshing
+                    && (!this._lastUrlRetryAt || now - this._lastUrlRetryAt > 30000);
+      if (canRetry) {
+        this._urlRefreshing = true;
+        this._lastUrlRetryAt = now;
+        try {
+          const newUrl = await fetchOnlinePlayUrlById(t.onlineId, t.onlineSource || 'netease');
+          this._urlRefreshing = false;
+          if (newUrl && newUrl !== t.url) {
+            t.url = newUrl;
+            save();
+            this.load(t.id, true);
+            return;
+          }
+        } catch (_) {
+          this._urlRefreshing = false;
+        }
+      toast('这首歌暂时听不了，换一首试试');
+    }
+    this.notify();
+    });
     this.setupMediaSession();
   },
 
@@ -3591,7 +3646,7 @@ const player = {
     if (autoplay) {
       try {
         const p = this.audio.play();
-        if (p && p.catch) p.catch(() => {});
+        if (p && p.catch) p.catch((err) => { console.warn('autoplay rejected:', err); });
       } catch (_) {}
     }
   },
@@ -3600,9 +3655,16 @@ const player = {
     this.init();
     if (!this.trackId) return;
     if (!this.unlocked) { toast('先点击一次播放按钮'); return; }
+    // ★ 修复：如果已经播到末尾/ended，先回到开头再播
+    try {
+      if (this.audio.ended || (this.audio.duration > 0 && this.audio.currentTime >= this.audio.duration - 0.05)) {
+        this.audio.currentTime = 0;
+        this.currentTime = 0;
+      }
+    } catch (_) {}
     try {
       const p = this.audio.play();
-      if (p && p.catch) p.catch(() => {});
+      if (p && p.catch) p.catch((err) => { console.warn('play rejected:', err); });
     } catch (_) {}
   },
   pause() { if (this.audio) { try { this.audio.pause(); } catch (_) {} } },
@@ -3712,7 +3774,19 @@ const player = {
   }
 };
 player.mode = state.music.lastMode || 'loop-all';
-
+/* ★ 在线歌 URL 刷新：给 player 的 error 回调使用 */
+async function fetchOnlinePlayUrlById(onlineId, source = 'netease') {
+  if (!onlineId) return '';
+  try {
+    const url = `https://music-api.gdstudio.xyz/api.php?types=url&source=${encodeURIComponent(source)}&id=${encodeURIComponent(onlineId)}&br=320`;
+    const res = await fetch(url);
+    if (!res.ok) return '';
+    const data = await res.json();
+    return data.url || (data.data && data.data.url) || '';
+  } catch (_) {
+    return '';
+  }
+}
 window.addEventListener('beforeunload', () => {
   Object.keys(player._objectUrls).forEach(k => {
     try { URL.revokeObjectURL(player._objectUrls[k]); } catch (_) {}
@@ -4011,11 +4085,8 @@ function goHome() {
   beautySubView = 'main';
   apiEditingId = null; wbEditingId = null; settingsSubView = 'main';
   musicSubView = 'main'; musicActivePlaylistId = null; _onlineSearchResults = []; _onlineSearchKeyword = '';
-  if (_playerUIRefreshUnsub) { _playerUIRefreshUnsub(); _playerUIRefreshUnsub = null; }
-  /* ★ 退出时停止歌词滚动并清理定时器 */
-  stopLyricsAutoScroll();
-  if (_lyricsRestoreTimer) { clearTimeout(_lyricsRestoreTimer); _lyricsRestoreTimer = null; }
-  _lyricsUserDragging = false;
+    if (_playerUIRefreshUnsub) { _playerUIRefreshUnsub(); _playerUIRefreshUnsub = null; }
+  stopLyricsController();
   appView.classList.remove('active');
   $('#screen').dataset.mode = 'home';
   setTimeout(() => { if (!currentApp) appView.innerHTML = ''; }, 460);
@@ -5077,7 +5148,7 @@ function renderMusicMain() {
             <div class="music-recent-name">${esc(t.name)}</div>
             <div class="music-recent-artist">${esc(t.artist || '—')}</div>
           </div>
-          <div class="music-recent-dur">${fmtSec(t.duration || 0)}</div>
+          <div class="music-recent-dur">${t.duration ? fmtSec(t.duration) : '--:--'}</div>
         </div>`;
       }).join('')}</div>`
     : `<div class="music-empty" style="padding:24px;font-size:12.5px;">还没有听过的歌</div>`;
@@ -5227,7 +5298,7 @@ function renderOnlineSearchPage() {
             <div class="music-track-name">${esc(t.name)}</div>
             <div class="music-track-artist">${esc(t.artist || '—')}</div>
           </div>
-          <div class="music-track-dur">${fmtSec(t.duration || 0)}</div>
+          <div class="music-track-dur">${t.duration ? fmtSec(t.duration) : '--:--'}</div>
         </div>
       `).join('')
     : `<div class="music-empty" style="padding:60px 30px;">
@@ -5331,7 +5402,7 @@ async function doOnlineSearch(keyword) {
         name: item.name || item.title || '未知歌曲',
         artist: Array.isArray(item.artist) ? item.artist.join(' / ') : (item.artist || ''),
         album: item.album || '',
-        duration: item.duration || 0,
+        duration: normalizeDuration(item), // ★ 使用新的解析逻辑
         album_image: pic, // 这里赋值补全后的图
         source: 'netease',
         raw: item
@@ -5580,7 +5651,7 @@ function musicTrackItemHTML(t, source) {
       <div class="music-track-name">${esc(t.name)}</div>
       <div class="music-track-artist">${esc(t.artist || '—')}</div>
     </div>
-    <div class="music-track-dur">${fmtSec(t.duration || 0)}</div>
+    <div class="music-track-dur">${t.duration ? fmtSec(t.duration) : '--:--'}</div>
     <div class="music-track-more" data-more="1">⋯</div>
   </div>`;
 }
@@ -6328,12 +6399,7 @@ function renderMusicPlayerPage() {
     musicSubView = 'main';
     return renderMusicMain();
   }
-  /* 重置歌词滚动状态 */
-  stopLyricsAutoScroll();
-  _lyricsScrollPos = 0;
-  _lyricsScrollLastTs = 0;
-  _lyricsUserDragging = false;
-  if (_lyricsRestoreTimer) { clearTimeout(_lyricsRestoreTimer); _lyricsRestoreTimer = null; }
+  stopLyricsController();
 
   const isFav = state.music.favorites.includes(t.id);
   const modeIcon = player.mode === 'loop-one' ? ICONS.loopOne : player.mode === 'shuffle' ? ICONS.shuffle : ICONS.loop;
@@ -6387,9 +6453,7 @@ function renderMusicPlayerPage() {
     musicSubView = musicPlayerFrom || 'main';
     if (musicSubView === 'playlist' && !musicActivePlaylistId) musicSubView = 'main';
     _playerLyricsView = false;
-    stopLyricsAutoScroll();
-    if (_lyricsRestoreTimer) { clearTimeout(_lyricsRestoreTimer); _lyricsRestoreTimer = null; }
-    _lyricsUserDragging = false;
+    stopLyricsController();
     renderMusicApp();
   };
   $('#musicPlayerMore').onclick = () => openTrackMoreMenu(t.id, musicPlayerFrom);
@@ -6405,16 +6469,11 @@ function renderMusicPlayerPage() {
   $('#mpMode').onclick = () => { player.cycleMode(); renderMusicPlayerPage(); };
   $('#mpFav').onclick = () => toggleTrackFavorite(t.id);
   $('#mpAddPl').onclick = () => addTrackToPlaylistModal(t.id);
-  $('#mpLyrics').onclick = () => {
+    $('#mpLyrics').onclick = () => {
     _playerLyricsView = !_playerLyricsView;
     const main = $('#musicPlayerMain');
     if (!main) return;
-    /* 切视图时重置滚动位置 */
-    stopLyricsAutoScroll();
-    _lyricsScrollPos = 0;
-    _lyricsScrollLastTs = 0;
-    _lyricsUserDragging = false;
-    if (_lyricsRestoreTimer) { clearTimeout(_lyricsRestoreTimer); _lyricsRestoreTimer = null; }
+    stopLyricsController();
     if (_playerLyricsView) {
       main.innerHTML = buildLyricsHTML(t);
     } else {
@@ -6465,11 +6524,11 @@ function buildLyricsHTML(t) {
 }
 function bindPlayerMain(t) {
   if (_playerLyricsView) {
-    // 1. 绑定“手动添加歌词”按钮（不再提前 return）
+    // 1. 手动添加歌词按钮
     const addBtn = $('#addLyricsFromPlayer');
     if (addBtn) addBtn.onclick = () => editTrackLyrics(t.id);
 
-    // 2. 绑定“重新拉取在线歌词”按钮（仅在线歌曲、无歌词时出现）
+    // 2. 重新拉取在线歌词按钮
     const retryBtn = $('#retryOnlineLyrics');
     if (retryBtn) {
       retryBtn.onclick = async () => {
@@ -6490,23 +6549,11 @@ function bindPlayerMain(t) {
       };
     }
 
-    // 3. 如果当前这首歌没有歌词行，到此为止（按钮已绑定，无需再处理歌词行）
+    // 3. 没有歌词行时，按钮绑定完毕就返回
     if (!t.lyricsLines || !t.lyricsLines.length) return;
 
-    // 4. 原有逻辑：有时间戳 → 点击跳转 + 高亮；无时间戳 → 匀速滚动
-    if (t.lyricsHasTime) {
-      document.querySelectorAll('#musicLyricsInner .music-lyric-line').forEach(el => {
-        el.addEventListener('click', () => {
-          const tm = parseFloat(el.dataset.time);
-          if (isFinite(tm)) player.seek(tm);
-        });
-      });
-      updateLyricsHighlight();
-    } else {
-      /* ★ 无时间戳：启动匀速滚动 + 绑定用户拖动 */
-      startLyricsAutoScroll(true);
-      bindLyricsUserScroll();
-    }
+    // 4. 启动统一歌词滚动控制器
+    initLyricsController(t);
   } else {
     const disc = $('#musicDisc');
     if (disc) disc.onclick = () => {
@@ -6517,95 +6564,249 @@ function bindPlayerMain(t) {
   }
 }
 
-/* ★ 无时间戳歌词：匀速自动滚动 */
-function startLyricsAutoScroll(reset) {
-  stopLyricsAutoScroll();
-  if (reset) { _lyricsScrollPos = 0; _lyricsScrollLastTs = 0; }
-  _lyricsScrollRafId = requestAnimationFrame(lyricsScrollTick);
+/* ============================================================
+   歌词滚动控制器（时间戳 / 无时间戳 统一处理）
+   - 有时间戳：跟随当前行，平滑居中
+   - 无时间戳：匀速滚动，循环
+   - 支持上下拖动 + 惯性滑动 + 松手 3 秒后回正
+   ============================================================ */
+function stopLyricsController() {
+  const ctrl = _lyricsCtrl;
+  if (!ctrl) return;
+  if (ctrl.rafId) { cancelAnimationFrame(ctrl.rafId); ctrl.rafId = null; }
+  if (ctrl.restoreTimer) { clearTimeout(ctrl.restoreTimer); ctrl.restoreTimer = null; }
+  if (typeof ctrl._cleanup === 'function') { try { ctrl._cleanup(); } catch (_) {} }
+  _lyricsCtrl = null;
 }
-function stopLyricsAutoScroll() {
-  if (_lyricsScrollRafId) { cancelAnimationFrame(_lyricsScrollRafId); _lyricsScrollRafId = null; }
-  _lyricsScrollLastTs = 0;
-}
-function lyricsScrollTick(ts) {
-  const inner = $('#musicLyricsInner');
-  const container = $('#musicLyrics');
-  if (!inner || !container) { stopLyricsAutoScroll(); return; }
-  if (!_lyricsUserDragging && player.playing && _lyricsScrollLastTs) {
-    const dt = ts - _lyricsScrollLastTs;
-    const lineH = getLyricLineHeight();
-    _lyricsScrollPos += lineH * dt / LYRIC_SCROLL_INTERVAL;
+
+function findActiveLyricIndex(track, curTime) {
+  const lines = (track && track.lyricsLines) || [];
+  if (!lines.length) return -1;
+  if (!track.lyricsHasTime) return -1;
+  let idx = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const tm = lines[i] && lines[i].time;
+    if (typeof tm === 'number' && tm <= curTime) idx = i;
+    else break;
   }
-  _lyricsScrollLastTs = ts;
-  applyLyricsScroll();
-  _lyricsScrollRafId = requestAnimationFrame(lyricsScrollTick);
+  return idx;
 }
-function getLyricLineHeight() {
-  const inner = $('#musicLyricsInner');
-  if (!inner) return 34;
-  const first = inner.querySelector('.music-lyric-line');
-  if (first) { const h = first.getBoundingClientRect().height; if (h > 0) return h; }
-  return 34;
+
+function applyLyricsTransform(ctrl) {
+  if (!ctrl || !ctrl.inner) return;
+  const T = ctrl.containerHeight / 2 - ctrl.scrollPos;
+  ctrl.inner.style.transform = `translateY(${T}px)`;
 }
-function applyLyricsScroll() {
-  const inner = $('#musicLyricsInner');
-  const container = $('#musicLyrics');
-  if (!inner || !container) return;
-  const lineH = getLyricLineHeight();
-  const lineCount = inner.querySelectorAll('.music-lyric-line').length;
-  if (lineCount === 0) return;
-  const maxScroll = lineCount * lineH;
-  /* 滚完一遍回到顶部 */
-  if (_lyricsScrollPos >= maxScroll) _lyricsScrollPos = 0;
-  if (_lyricsScrollPos < 0) _lyricsScrollPos = maxScroll;
-  const containerH = container.clientHeight;
-  const translateY = containerH / 2 - lineH / 2 - _lyricsScrollPos;
-  inner.classList.add('no-transition');
-  inner.style.transform = `translateY(${translateY}px)`;
-}
-function bindLyricsUserScroll() {
-  const container = $('#musicLyrics');
-  const inner = $('#musicLyricsInner');
-  if (!container || !inner) return;
-  _lyricsUserDragging = false;
-  if (_lyricsRestoreTimer) { clearTimeout(_lyricsRestoreTimer); _lyricsRestoreTimer = null; }
-  let touchActive = false, startY = 0, startPos = 0, moved = false;
-  container.addEventListener('touchstart', (e) => {
-    if (!e.touches || !e.touches.length) return;
-    touchActive = true; moved = false;
-    startY = e.touches[0].clientY;
-    startPos = _lyricsScrollPos;
-  }, { passive: true });
-  container.addEventListener('touchmove', (e) => {
-    if (!touchActive || !e.touches || !e.touches.length) return;
-    const dy = e.touches[0].clientY - startY;
-    if (!moved && Math.abs(dy) > 5) {
-      moved = true;
-      _lyricsUserDragging = true;
-      inner.classList.add('no-transition');
-      if (_lyricsRestoreTimer) { clearTimeout(_lyricsRestoreTimer); _lyricsRestoreTimer = null; }
+
+function lyricsTickLoop(ts) {
+  const ctrl = _lyricsCtrl;
+  if (!ctrl || !ctrl.inner.isConnected) { stopLyricsController(); return; }
+
+  const dt = ctrl.lastFrameTs ? Math.min(64, ts - ctrl.lastFrameTs) : 16;
+  ctrl.lastFrameTs = ts;
+
+  // 1. 计算目标滚动位置
+  let target = ctrl.scrollPos;
+  if (ctrl.hasTime) {
+    const cur = player.currentTime || 0;
+    const idx = findActiveLyricIndex(ctrl.track, cur);
+    if (idx >= 0 && ctrl.lines[idx]) {
+      const el = ctrl.lines[idx];
+      target = el.offsetTop + el.offsetHeight / 2;
+      if (idx !== ctrl.activeIdx) {
+        ctrl.activeIdx = idx;
+        ctrl.lines.forEach((lineEl, i) => lineEl.classList.toggle('active', i === idx));
+      }
     }
-    if (!moved) return;
-    const lineH = getLyricLineHeight();
-    const lineCount = inner.querySelectorAll('.music-lyric-line').length;
-    const maxScroll = lineCount * lineH;
-    let newPos = startPos - dy;
-    newPos = Math.max(0, Math.min(maxScroll, newPos));
-    _lyricsScrollPos = newPos;
-    applyLyricsScroll();
-    e.preventDefault();
-  }, { passive: false });
-  const onTouchEnd = () => {
-    touchActive = false;
-    if (!moved) return;
-    if (_lyricsRestoreTimer) clearTimeout(_lyricsRestoreTimer);
-    _lyricsRestoreTimer = setTimeout(() => {
-      _lyricsRestoreTimer = null;
-      _lyricsUserDragging = false;
+  } else {
+    // 无时间戳：播放中、非拖动、自动跟随时匀速推进
+    if (player.playing && !ctrl.dragging && ctrl.autoFollow) {
+      ctrl.autoScrollPos += dt / LYRIC_SCROLL_INTERVAL * ctrl.avgHeight;
+      if (ctrl.autoScrollPos > ctrl.scrollEnd) ctrl.autoScrollPos = ctrl.scrollStart;
+    }
+    target = ctrl.autoScrollPos;
+  }
+
+  // 2. 更新位置：拖动 > 惯性 > 平滑跟随 / 静止等待回正
+  if (ctrl.dragging) {
+    // 位置由 pointermove 控制
+  } else if (Math.abs(ctrl.velocity) > 0.02) {
+    ctrl.scrollPos += ctrl.velocity * dt;
+    ctrl.velocity *= Math.pow(0.93, dt / 16);
+    if (Math.abs(ctrl.velocity) < 0.02) ctrl.velocity = 0;
+    // 边界阻尼
+    if (ctrl.scrollPos < ctrl.scrollStart) {
+      ctrl.scrollPos += (ctrl.scrollStart - ctrl.scrollPos) * Math.min(1, dt / 40);
+      ctrl.velocity *= 0.4;
+    } else if (ctrl.scrollPos > ctrl.scrollEnd) {
+      ctrl.scrollPos += (ctrl.scrollEnd - ctrl.scrollPos) * Math.min(1, dt / 40);
+      ctrl.velocity *= 0.4;
+    }
+  } else if (ctrl.autoFollow) {
+    const factor = 1 - Math.pow(0.80, dt / 16);
+    ctrl.scrollPos += (target - ctrl.scrollPos) * factor;
+    if (Math.abs(target - ctrl.scrollPos) < 0.5) ctrl.scrollPos = target;
+  } else {
+    // 用户刚拖动过，位置保持，等 3 秒回正
+    if (ctrl.scrollPos < ctrl.scrollStart) ctrl.scrollPos += (ctrl.scrollStart - ctrl.scrollPos) * Math.min(1, dt / 60);
+    else if (ctrl.scrollPos > ctrl.scrollEnd) ctrl.scrollPos += (ctrl.scrollEnd - ctrl.scrollPos) * Math.min(1, dt / 60);
+  }
+
+  applyLyricsTransform(ctrl);
+  ctrl.rafId = requestAnimationFrame(lyricsTickLoop);
+}
+
+function initLyricsController(track) {
+  stopLyricsController();
+  const container = document.getElementById('musicLyrics');
+  const inner = document.getElementById('musicLyricsInner');
+  if (!container || !inner) return;
+
+  const lines = Array.from(inner.querySelectorAll('.music-lyric-line'));
+  if (!lines.length) return;
+
+  // 测量（首次渲染此时已布局完成）
+  const firstEl = lines[0];
+  const lastEl = lines[lines.length - 1];
+  const firstH = firstEl.offsetHeight || 42;
+  const scrollStart = firstEl.offsetTop + firstH / 2;
+  const scrollEnd = lastEl.offsetTop + (lastEl.offsetHeight || 42) / 2;
+  const totalHeight = (lastEl.offsetTop + (lastEl.offsetHeight || 42)) - firstEl.offsetTop;
+  const avgHeight = Math.max(20, totalHeight / lines.length);
+  const containerHeight = container.clientHeight || 400;
+
+  const ctrl = {
+    container, inner, lines, track,
+    containerHeight,
+    lineHeight: firstH,
+    avgHeight,
+    scrollStart,
+    scrollEnd,
+    hasTime: !!track.lyricsHasTime,
+    scrollPos: scrollStart,
+    velocity: 0,
+    autoFollow: true,
+    dragging: false,
+    dragStartY: 0,
+    dragStartScroll: 0,
+    lastMoveTime: 0,
+    lastMoveScroll: 0,
+    lastFrameTs: 0,
+    rafId: null,
+    autoScrollPos: scrollStart,
+    restoreTimer: null,
+    activeIdx: -1,
+    _wasDrag: false,
+    _cleanup: null,
+  };
+
+  // 初始定位
+  if (ctrl.hasTime) {
+    const cur = player.currentTime || 0;
+    const idx = findActiveLyricIndex(track, cur);
+    if (idx >= 0 && lines[idx]) {
+      ctrl.activeIdx = idx;
+      const el = lines[idx];
+      ctrl.scrollPos = el.offsetTop + el.offsetHeight / 2;
+      lines.forEach((lineEl, i) => lineEl.classList.toggle('active', i === idx));
+    }
+  }
+
+  applyLyricsTransform(ctrl);
+  _lyricsCtrl = ctrl;
+  bindLyricsGestures(ctrl);
+  ctrl.rafId = requestAnimationFrame(lyricsTickLoop);
+
+  // 兜底：若容器高度测量为 0 或异常，下一帧修正
+  if (containerHeight < 50 || container.clientHeight !== containerHeight) {
+    requestAnimationFrame(() => {
+      if (_lyricsCtrl === ctrl) {
+        ctrl.containerHeight = container.clientHeight;
+        applyLyricsTransform(ctrl);
+      }
+    });
+  }
+}
+
+function bindLyricsGestures(ctrl) {
+  const { container } = ctrl;
+
+  const onPointerDown = (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    ctrl.dragging = true;
+    ctrl.autoFollow = false;
+    ctrl.velocity = 0;
+    ctrl._wasDrag = false;
+    ctrl.dragStartY = e.clientY;
+    ctrl.dragStartScroll = ctrl.scrollPos;
+    ctrl.lastMoveTime = performance.now();
+    ctrl.lastMoveScroll = ctrl.scrollPos;
+    if (ctrl.restoreTimer) { clearTimeout(ctrl.restoreTimer); ctrl.restoreTimer = null; }
+    try { container.setPointerCapture(e.pointerId); } catch (_) {}
+  };
+
+  const onPointerMove = (e) => {
+    if (!ctrl.dragging) return;
+    const dy = e.clientY - ctrl.dragStartY;
+    if (Math.abs(dy) > 4) ctrl._wasDrag = true;
+    let pos = ctrl.dragStartScroll - dy;
+    // 边界阻尼
+    if (pos < ctrl.scrollStart) pos = ctrl.scrollStart + (pos - ctrl.scrollStart) * 0.4;
+    else if (pos > ctrl.scrollEnd) pos = ctrl.scrollEnd + (pos - ctrl.scrollEnd) * 0.4;
+    ctrl.scrollPos = pos;
+
+    const now = performance.now();
+    const dtm = now - ctrl.lastMoveTime;
+    if (dtm > 0) {
+      const v = (ctrl.scrollPos - ctrl.lastMoveScroll) / dtm;
+      ctrl.velocity = ctrl.velocity * 0.6 + v * 0.4;
+    }
+    ctrl.lastMoveTime = now;
+    ctrl.lastMoveScroll = ctrl.scrollPos;
+    applyLyricsTransform(ctrl);
+  };
+
+  const endDrag = () => {
+    if (!ctrl.dragging) return;
+    ctrl.dragging = false;
+    if (ctrl.restoreTimer) clearTimeout(ctrl.restoreTimer);
+    ctrl.restoreTimer = setTimeout(() => {
+      ctrl.restoreTimer = null;
+      ctrl.autoFollow = true;
+      ctrl.velocity = 0;
+      if (!ctrl.hasTime) {
+        const p = Math.max(ctrl.scrollStart, Math.min(ctrl.scrollEnd, ctrl.scrollPos));
+        ctrl.autoScrollPos = p;
+      }
     }, 3000);
   };
-  container.addEventListener('touchend', onTouchEnd, { passive: true });
-  container.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
+  const onClick = (e) => {
+    if (ctrl._wasDrag) return;
+    if (!ctrl.hasTime) return;
+    const lineEl = e.target.closest('.music-lyric-line');
+    if (!lineEl) return;
+    const idx = parseInt(lineEl.dataset.idx, 10);
+    if (isNaN(idx)) return;
+    const line = ctrl.track.lyricsLines[idx];
+    if (line && typeof line.time === 'number') player.seek(line.time);
+  };
+
+  container.addEventListener('pointerdown', onPointerDown);
+  container.addEventListener('pointermove', onPointerMove);
+  container.addEventListener('pointerup', endDrag);
+  container.addEventListener('pointercancel', endDrag);
+  container.addEventListener('lostpointercapture', endDrag);
+  container.addEventListener('click', onClick);
+
+  ctrl._cleanup = () => {
+    container.removeEventListener('pointerdown', onPointerDown);
+    container.removeEventListener('pointermove', onPointerMove);
+    container.removeEventListener('pointerup', endDrag);
+    container.removeEventListener('pointercancel', endDrag);
+    container.removeEventListener('lostpointercapture', endDrag);
+    container.removeEventListener('click', onClick);
+  };
 }
 
 function startPlayerUIRefresh() {
@@ -6643,7 +6844,7 @@ function refreshMusicPlayerUI() {
   if (thumbEl) thumbEl.style.left = pct + '%';
   if (playBtn) playBtn.innerHTML = player.playing ? `<span>${ICONS.pause}</span>` : `<span class="icon-play">${ICONS.play}</span>`;
   if (disc) disc.classList.toggle('playing', player.playing);
-  updateLyricsHighlight();
+  // 歌词高亮与滚动由 lyricsTickLoop 统一处理，无需在此更新
 }
 function bindProgressDrag() {
   const el = $('#mpProgress');
@@ -6683,28 +6884,7 @@ function bindProgressDrag() {
   el.addEventListener('pointerup', finish);
   el.addEventListener('pointercancel', finish);
 }
-/* 仅用于有时间戳的歌词（无时间戳由 rAF 滚动控制） */
-function updateLyricsHighlight() {
-  const t = player.getTrack();
-  if (!t || !t.lyricsHasTime || !t.lyricsLines || !t.lyricsLines.length) return;
-  const inner = $('#musicLyricsInner');
-  const container = $('#musicLyrics');
-  if (!inner || !container) return;
-  const cur = player.currentTime || 0;
-  let activeIdx = -1;
-  for (let i = 0; i < t.lyricsLines.length; i++) {
-    if (t.lyricsLines[i].time <= cur) activeIdx = i;
-    else break;
-  }
-  const lines = inner.querySelectorAll('.music-lyric-line');
-  lines.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
-  if (activeIdx >= 0 && lines[activeIdx]) {
-    const el = lines[activeIdx];
-    const offset = el.offsetTop + el.offsetHeight / 2 - container.clientHeight / 2;
-    inner.classList.remove('no-transition');
-    inner.style.transform = `translateY(${-offset}px)`;
-  }
-}
+
 /* ============================================================
    日历 App
    ============================================================ */
