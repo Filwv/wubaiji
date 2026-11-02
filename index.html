@@ -5303,17 +5303,40 @@ async function doOnlineSearch(keyword) {
     const res = await fetch(url);
     if (!res.ok) throw new Error('搜索请求失败');
     const data = await res.json();
-    const arr = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
-    _onlineSearchResults = arr.map(item => ({
-      id: String(item.id || item.song_id || ''),
-      name: item.name || item.title || '未知歌曲',
-      artist: Array.isArray(item.artist) ? item.artist.join(' / ') : (item.artist || ''),
-      album: item.album || '',
-      duration: item.duration || 0,
-      album_image: item.pic || item.album_image || null,
-      source: 'netease',
-      raw: item
-    })).filter(t => t.id);
+        const arr = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+    
+    // 使用 Promise.all 并发请求，如果 GD 没封面，用 iTunes 补全
+    _onlineSearchResults = await Promise.all(arr.map(async item => {
+      let pic = item.pic || item.album_image || null;
+      
+      if (!pic) {
+        try {
+          const iname = item.name || item.title || '';
+          const iartist = Array.isArray(item.artist) ? item.artist.join(' ') : (item.artist || '');
+          const keyword = iartist ? `${iname} ${iartist}` : iname;
+          const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(keyword)}&entity=song&limit=1`;
+          const itRes = await fetch(itunesUrl);
+          if (itRes.ok) {
+            const itData = await itRes.json();
+            if (itData.results && itData.results.length > 0) {
+              // 将 100x100 替换为 300x300 获取更清晰的图
+              pic = itData.results[0].artworkUrl100.replace('100x100bb', '300x300bb');
+            }
+          }
+        } catch (_) {}
+      }
+      
+      return {
+        id: String(item.id || item.song_id || ''),
+        name: item.name || item.title || '未知歌曲',
+        artist: Array.isArray(item.artist) ? item.artist.join(' / ') : (item.artist || ''),
+        album: item.album || '',
+        duration: item.duration || 0,
+        album_image: pic, // 这里赋值补全后的图
+        source: 'netease',
+        raw: item
+      };
+    })).then(res => res.filter(t => t.id));
   } catch (e) {
     _onlineSearchResults = [];
     if (listEl) listEl.innerHTML = `<div class="music-empty" style="padding:50px 30px;">搜索失败：${esc(friendlyError(e))}</div>`;
@@ -5447,38 +5470,72 @@ async function playOnlineTrack(track) {
 }
 
 /* ============================================================
-   在线匹配歌曲封面
+   在线匹配歌曲封面 (强力加强版：网易云 + iTunes 兜底)
    ============================================================ */
 async function fetchOnlineCover(track, silent = false) {
   if (!track) return;
-  const keyword = `${track.name || ''} ${track.artist || ''}`.trim();
-  if (!keyword) { if (!silent) toast('歌曲信息不足，无法搜索'); return; }
+  const name = (track.name || '').trim();
+  const artist = (track.artist || '').trim();
+  if (!name) { if (!silent) toast('歌曲名不能为空'); return; }
   
   if (!silent) showLoadingToast('正在搜索封面…');
   try {
-    const url = `https://music-api.gdstudio.xyz/api.php?types=search&source=netease&name=${encodeURIComponent(keyword)}&count=5&pages=1`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('搜索请求失败');
-    const data = await res.json();
-    const arr = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
-    if (!arr.length) throw new Error('未找到相关歌曲');
+    let pic = null;
     
-    let best = arr[0];
-    const tn = (track.name || '').toLowerCase();
-    for (const item of arr) {
-      const iname = (item.name || '').toLowerCase();
-      const iartist = (item.artist && Array.isArray(item.artist) ? item.artist.join(' ') : (item.artist || '')).toLowerCase();
-      const tartist = (track.artist || '').toLowerCase();
-      if (iname === tn && (iartist.includes(tartist) || tartist.includes(iartist))) {
-        best = item; break; 
+    // 1. 优先尝试网易云 (GD Studio 接口)
+    try {
+      const url = `https://music-api.gdstudio.xyz/api.php?types=search&source=netease&name=${encodeURIComponent(name)}&count=10&pages=1`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const arr = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+        if (arr.length) {
+          let best = null;
+          const tn = name.toLowerCase();
+          const tartist = artist.toLowerCase();
+          for (const item of arr) {
+            const iname = (item.name || '').toLowerCase();
+            const iartist = (item.artist && Array.isArray(item.artist) ? item.artist.join(' ') : (item.artist || '')).toLowerCase();
+            
+            // 名字要匹配上
+            if (iname.includes(tn) || tn.includes(iname)) {
+              // 如果歌手也对得上，那就是完美匹配
+              if (!tartist || iartist.includes(tartist) || tartist.includes(iartist)) {
+                best = item; break; 
+              }
+              if (!best) best = item; // 至少名字对上了，先备选
+            }
+          }
+          if (!best) best = arr[0];
+          
+          // 深度检索可能包含图片的字段
+          pic = best.pic || best.album_image || best.picUrl || (best.al && best.al.picUrl) || (best.album && best.album.picUrl);
+          
+          // 如果是网易云特有的 pic_id，尝试拼接
+          if (!pic && best.pic_id) {
+            pic = `https://p1.music.126.net/${best.pic_id}/${best.pic_id}.jpg`;
+          }
+        }
       }
-      if (iname.includes(tn) || tn.includes(iname)) {
-        best = item; 
-      }
+    } catch (_) {}
+
+    // 2. 如果网易云没拿到图，或者图是空字符串，使用 iTunes API 兜底 (极高成功率，无防盗链)
+    if (!pic) {
+      try {
+        const keyword = artist ? `${name} ${artist}` : name;
+        const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(keyword)}&entity=song&limit=1`;
+        const itRes = await fetch(itunesUrl);
+        if (itRes.ok) {
+          const itData = await itRes.json();
+          if (itData.results && itData.results.length > 0 && itData.results[0].artworkUrl100) {
+            // 把 100x100 替换为 600x600 获取高清图
+            pic = itData.results[0].artworkUrl100.replace('100x100bb', '600x600bb');
+          }
+        }
+      } catch (_) {}
     }
-    
-    const pic = best.pic || best.album_image;
-    if (!pic) throw new Error('该歌曲暂无封面');
+
+    if (!pic) throw new Error('所有渠道均未找到该歌曲封面');
     
     track.cover = pic;
     save();
@@ -5496,6 +5553,7 @@ async function fetchOnlineCover(track, silent = false) {
         renderMusicMain();
       }
     } else {
+      // 静默更新时，如果是正在播放的这首歌，局部更新播放器盘面图
       if (musicSubView === 'player' && player.trackId === track.id) {
         const coverEl = document.querySelector('.music-disc-cover');
         if (coverEl) {
