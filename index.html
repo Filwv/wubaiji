@@ -2296,28 +2296,11 @@ html,body{
 .music-player-bg{
   position:absolute;inset:0;
   background-size:cover;background-position:center;
-  filter:blur(30px) saturate(.7);
-  opacity:.85;pointer-events:none;z-index:0;
+  pointer-events:none;z-index:0;
 }
+/* 彻底隐藏阴影遮罩 */
 .music-player-shade{
-  position:absolute;inset:0;
-  background:rgba(255,255,255,.55);
-  pointer-events:none;z-index:1;
-}
-.music-player[data-bg-mode="full"] .music-player-bg{
-  filter:none;
-  opacity:1;
-}
-.music-player[data-bg-mode="full"] .music-player-shade{
-  background: linear-gradient(180deg,
-    rgba(0,0,0,0) 0%,
-    rgba(0,0,0,0) 40%,
-    rgba(0,0,0,0.04) 50%,
-    rgba(0,0,0,0.12) 60%,
-    rgba(0,0,0,0.26) 70%,
-    rgba(0,0,0,0.44) 80%,
-    rgba(0,0,0,0.60) 90%,
-    rgba(0,0,0,0.72) 100%);
+  display: none;
 }
 .music-player-content{
   position:relative;z-index:2;
@@ -3496,6 +3479,8 @@ let _playerLyricsView = false;
 let _playerUIRefreshUnsub = null;
 let _playerRenderedTrackId = null;
 let _playerRenderingLock = false;
+let _onlineSearchResults = [];
+let _onlineSearchKeyword = '';
 
 /* ★ 无时间戳歌词：匀速滚动状态 */
 let _lyricsScrollRafId = null;
@@ -3578,6 +3563,7 @@ const player = {
   async getPlayableUrl(track) {
     if (!track) return null;
     if (track.source === 'url' && track.url) return track.url;
+    if (track.source === 'online' && track.url) return track.url;
     if (track.source === 'local' && track.blobKey) {
       if (this._objectUrls[track.id]) return this._objectUrls[track.id];
       const blob = await idbGetMusic(track.blobKey);
@@ -4024,7 +4010,7 @@ function goHome() {
   tideSubView = 'main'; tideSelectedDate = null;
   beautySubView = 'main';
   apiEditingId = null; wbEditingId = null; settingsSubView = 'main';
-  musicSubView = 'main'; musicActivePlaylistId = null;
+  musicSubView = 'main'; musicActivePlaylistId = null; _onlineSearchResults = []; _onlineSearchKeyword = '';
   if (_playerUIRefreshUnsub) { _playerUIRefreshUnsub(); _playerUIRefreshUnsub = null; }
   /* ★ 退出时停止歌词滚动并清理定时器 */
   stopLyricsAutoScroll();
@@ -5059,6 +5045,7 @@ function weatherIconColor(code) {
    音乐 App
    ============================================================ */
 function renderMusicApp() {
+  if (musicSubView === 'online-search') return renderOnlineSearchPage();
   if (musicSubView === 'library') return renderMusicLibrary();
   if (musicSubView === 'playlist') return renderMusicPlaylistPage();
   if (musicSubView === 'player') return renderMusicPlayerPage();
@@ -5119,6 +5106,18 @@ function renderMusicMain() {
             <div class="music-profile-sub">${tracks.length} 首 · ${playlists.length} 个歌单</div>
           </div>
         </div>
+        <!-- 👇 新增：搜索在线歌曲入口 -->
+        <div class="music-search-entry" id="musicSearchEntry" style="
+          margin: 0 20px 20px; padding: 12px 16px;
+          background: #f3f3f5; border-radius: 14px;
+          display: flex; align-items: center; gap: 10px;
+          cursor: pointer; transition: background .15s;
+        ">
+          <span style="display:flex;width:20px;height:20px;color:#8a8a90;">${ICONS.search}</span>
+          <span style="font-size:14.5px;color:#8a8a90;">搜索在线歌曲</span>
+          <span style="margin-left:auto;font-size:12px;color:#c4c4ca;">GD 音乐台</span>
+        </div>
+        <!-- 👆 新增结束 -->
 
         <div class="music-sec-title"><span>最近播放</span>${history.length ? `<span class="music-sec-more" id="musicMoreHistory">更多 ›</span>` : ''}</div>
         ${recentHTML}
@@ -5149,6 +5148,8 @@ function renderMusicMain() {
   `;
 
   $('#musicUserAvatar').onclick = () => pickMusicAvatar();
+  const searchEntry = $('#musicSearchEntry');
+  if (searchEntry) searchEntry.onclick = () => { musicSubView = 'online-search'; renderMusicApp(); };
 
   appView.querySelectorAll('.music-recent-item').forEach(el => {
     el.addEventListener('click', () => {
@@ -5211,6 +5212,206 @@ function pickMusicAvatar() {
 }
 
 /* ---------- 本地音乐库 ---------- */
+/* ============================================================
+   在线搜索与播放
+   ============================================================ */
+
+function renderOnlineSearchPage() {
+  const listHTML = _onlineSearchResults.length
+    ? _onlineSearchResults.map((t, i) => `
+        <div class="music-track-item" data-online-idx="${i}">
+          <div class="music-track-cover" style="${t.album_image ? `background-image:url('${t.album_image}');` : ''}">
+            ${t.album_image ? '' : ICONS.musicNote}
+          </div>
+          <div class="music-track-main">
+            <div class="music-track-name">${esc(t.name)}</div>
+            <div class="music-track-artist">${esc(t.artist || '—')}</div>
+          </div>
+          <div class="music-track-dur">${fmtSec(t.duration || 0)}</div>
+        </div>
+      `).join('')
+    : `<div class="music-empty" style="padding:60px 30px;">
+        <div class="em-icon">${ICONS.search}</div>
+        <div>${_onlineSearchKeyword ? '没有找到相关歌曲' : '输入关键词，搜索在线歌曲'}</div>
+       </div>`;
+
+  appView.innerHTML = `
+    <div class="music-app">
+      <div class="music-header">
+        <button class="back-btn" id="musicOnlineBack">‹ 音乐</button>
+        <h1>在线搜索</h1>
+        <div style="margin-left:auto;z-index:2;"></div>
+      </div>
+      <div class="music-body">
+        <div class="chat-search" style="padding: 0 20px 12px;">
+          ${ICONS.search}
+          <input type="text" id="onlineSearchInput" placeholder="搜索歌曲、歌手…" autocomplete="off"
+            value="${esc(_onlineSearchKeyword)}"
+            style="flex:1;border:none;background:rgba(120,120,128,.12);border-radius:10px;padding:9px 12px;font:inherit;font-size:14px;color:var(--ink);outline:none;">
+        </div>
+        <div class="music-track-list" id="onlineTrackList">${listHTML}</div>
+        <p class="hint" style="text-align:center;padding:12px 20px;color:#c4c4ca;font-size:11px;">
+          搜索结果来自 GD 音乐台 · 仅供学习交流，请支持正版音乐
+        </p>
+      </div>
+    </div>
+  `;
+
+  $('#musicOnlineBack').onclick = () => {
+    musicSubView = 'main';
+    _onlineSearchResults = [];
+    _onlineSearchKeyword = '';
+    renderMusicApp();
+  };
+
+  const input = $('#onlineSearchInput');
+  if (input) {
+    setTimeout(() => input.focus(), 200);
+    let _searchTimer = null;
+    input.addEventListener('input', () => {
+      clearTimeout(_searchTimer);
+      const kw = input.value.trim();
+      if (!kw) return;
+      _searchTimer = setTimeout(() => doOnlineSearch(kw), 500);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); doOnlineSearch(input.value.trim()); }
+    });
+  }
+
+  const listEl = $('#onlineTrackList');
+  if (listEl) {
+    listEl.onclick = (e) => {
+      const item = e.target.closest('[data-online-idx]');
+      if (!item) return;
+      const idx = parseInt(item.dataset.onlineIdx, 10);
+      const track = _onlineSearchResults[idx];
+      if (track) playOnlineTrack(track);
+    };
+  }
+}
+
+async function doOnlineSearch(keyword) {
+  if (!keyword) return;
+  _onlineSearchKeyword = keyword;
+  const listEl = $('#onlineTrackList');
+  if (listEl) {
+    listEl.innerHTML = `<div class="music-empty" style="padding:50px 30px;">搜索中…</div>`;
+  }
+  try {
+    const url = `https://music-api.gdstudio.xyz/api.php?types=search&source=netease&name=${encodeURIComponent(keyword)}&count=30&pages=1`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('搜索请求失败');
+    const data = await res.json();
+    const arr = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+    _onlineSearchResults = arr.map(item => ({
+      id: String(item.id || item.song_id || ''),
+      name: item.name || item.title || '未知歌曲',
+      artist: Array.isArray(item.artist) ? item.artist.join(' / ') : (item.artist || ''),
+      album: item.album || '',
+      duration: item.duration || 0,
+      album_image: item.pic || item.album_image || null,
+      source: 'netease',
+      raw: item
+    })).filter(t => t.id);
+  } catch (e) {
+    _onlineSearchResults = [];
+    if (listEl) listEl.innerHTML = `<div class="music-empty" style="padding:50px 30px;">搜索失败：${esc(friendlyError(e))}</div>`;
+    return;
+  }
+  renderOnlineSearchPage();
+}
+
+async function fetchOnlineLyric(track) {
+  if (!track || !track.id) return null;
+  try {
+    const url = `https://music-api.gdstudio.xyz/api.php?types=lyric&source=netease&id=${encodeURIComponent(track.id)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const raw = data.lyric || data.data?.lyric || data.lrc || data.data?.lrc || '';
+    return raw || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function playOnlineTrack(track) {
+  if (!track || !track.id) return;
+  showLoadingToast('获取播放地址…');
+  try {
+    const url = `https://music-api.gdstudio.xyz/api.php?types=url&source=netease&id=${encodeURIComponent(track.id)}&br=320`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('获取播放地址失败');
+    const data = await res.json();
+    const playUrl = data.url || data.data?.url || '';
+    if (!playUrl) throw new Error('该歌曲暂时无法播放');
+
+    // 尝试拉取歌词（失败不影响播放）
+    let lyricRaw = '';
+    try {
+      lyricRaw = await fetchOnlineLyric(track);
+    } catch (_) {}
+
+    hideLoadingToast();
+
+    const existing = state.music.tracks.find(t => t.source === 'online' && t.url === playUrl);
+    let trackId;
+    if (existing) {
+      trackId = existing.id;
+      if (!existing.onlineId && track.id) {
+        existing.onlineId = track.id;
+        existing.onlineSource = track.source || 'netease';
+        save();
+      }
+      if (!existing.lyrics && lyricRaw) {
+        existing.lyrics = lyricRaw;
+        const parsed = parseLRC(lyricRaw);
+        existing.lyricsLines = parsed.lines;
+        existing.lyricsHasTime = parsed.hasTime;
+        save();
+      }
+    } else {
+      trackId = uid('tr_');
+      let lyrics = '', lyricsLines = null, lyricsHasTime = false;
+      if (lyricRaw) {
+        const parsed = parseLRC(lyricRaw);
+        lyrics = lyricRaw;
+        lyricsLines = parsed.lines;
+        lyricsHasTime = parsed.hasTime;
+      }
+      state.music.tracks.push({
+        id: trackId,
+        name: track.name,
+        artist: track.artist,
+        album: track.album || '',
+        duration: track.duration || 0,
+        cover: track.album_image || null,
+        bgImage: null,
+        textMode: 'auto',
+        source: 'online',
+        blobKey: null,
+        url: playUrl,
+        onlineSource: track.source || 'netease',
+        onlineId: track.id,
+        lyrics,
+        lyricsLines,
+        lyricsHasTime,
+        addedAt: Date.now()
+      });
+      save();
+    }
+
+    player.init();
+    player.unlocked = true;
+    player.setQueue([trackId], 0);
+    await player.load(trackId, true);
+    openPlayerPage('online-search');
+  } catch (e) {
+    hideLoadingToast();
+    toast('播放失败：' + friendlyError(e));
+  }
+}
 function renderMusicLibrary() {
   const tracks = state.music.tracks;
   const listHTML = tracks.length
@@ -5333,7 +5534,7 @@ async function importMusicFiles(files) {
         duration,
         cover: null,
         bgImage: null,
-        bgDisplayMode: 'soft',
+        textMode: 'auto',
         source: 'local',
         blobKey: trackId,
         url: null,
@@ -5401,7 +5602,7 @@ async function processUrlImports(urls) {
           duration: dur,
           cover: null,
           bgImage: null,
-          bgDisplayMode: 'soft',
+          textMode: 'auto',
           source: 'url',
           blobKey: null,
           url,
@@ -5570,8 +5771,8 @@ function openTrackMoreMenu(trackId, source) {
   const isInPlaylist = source === 'playlist' && musicActivePlaylistId && musicActivePlaylistId !== '__favorites__';
   const pl = isInPlaylist ? state.music.playlists.find(p => p.id === musicActivePlaylistId) : null;
   const hasBgImage = !!t.bgImage;
-  const bgMode = t.bgDisplayMode === 'full' ? 'full' : 'soft';
-  const bgModeLabel = bgMode === 'full' ? '原图（无模糊）' : '柔和（默认）';
+  const textMode = t.textMode || 'auto';
+  const textModeLabel = { auto: '自动适配（默认）', light: '浅色（适合深色背景）', dark: '深色（适合浅色背景）' }[textMode];
   modal.innerHTML = `
     <div class="widget-panel">
       <h3 class="edit-title">${esc(t.name)}</h3>
@@ -5580,7 +5781,13 @@ function openTrackMoreMenu(trackId, source) {
         <div class="list-item" id="tmLyrics"><div class="li-main"><div class="li-title">${t.lyrics ? '编辑歌词' : '添加歌词'}</div><div class="li-sub">${t.lyricsHasTime ? '带时间戳，精确跟随' : (t.lyricsLines && t.lyricsLines.length ? '无时间戳，匀速滚动' : '支持粘贴或导入 .lrc')}</div></div><span class="li-chev">›</span></div>
         <div class="list-item" id="tmCover"><div class="li-main"><div class="li-title">替换封面</div></div><span class="li-chev">›</span></div>
         <div class="list-item" id="tmBg"><div class="li-main"><div class="li-title">${hasBgImage ? '替换播放背景' : '设置播放背景'}</div></div><span class="li-chev">›</span></div>
-        <div class="list-item" id="tmBgMode"><div class="li-main"><div class="li-title">背景显示</div><div class="li-sub">${bgModeLabel}</div></div><span class="li-chev">›</span></div>
+        ${hasBgImage ? `<div class="list-item" id="tmResetBg"><div class="li-main"><div class="li-title" style="color:var(--danger);">恢复默认背景</div></div><span class="li-chev">›</span></div>` : ''}
+        <!-- 👇新增：文字颜色菜单项 -->
+        <div class="list-item" id="tmTextMode">
+          <div class="li-main"><div class="li-title">文字颜色</div><div class="li-sub">${textModeLabel}</div></div>
+          <span class="li-chev">›</span>
+        </div>
+        <!-- 👆新增结束 👆 -->
         <div class="list-item" id="tmFav"><div class="li-main"><div class="li-title">${isFav ? '取消喜欢' : '喜欢'}</div></div><span class="li-chev">›</span></div>
         <div class="list-item" id="tmAddPl"><div class="li-main"><div class="li-title">加入歌单</div></div><span class="li-chev">›</span></div>
         ${isInPlaylist && pl ? `<div class="list-item" id="tmRemoveFromPl"><div class="li-main"><div class="li-title" style="color:var(--danger);">从「${esc(pl.name)}」移除</div></div><span class="li-chev">›</span></div>` : ''}
@@ -5597,20 +5804,34 @@ function openTrackMoreMenu(trackId, source) {
   $('#tmLyrics').onclick = () => { close(); editTrackLyrics(trackId); };
   $('#tmCover').onclick = () => { close(); changeTrackImage(trackId, 'cover'); };
   $('#tmBg').onclick = () => { close(); changeTrackImage(trackId, 'bgImage'); };
-  $('#tmBgMode').onclick = () => {
-    t.bgDisplayMode = (bgMode === 'full') ? 'soft' : 'full';
+
+  // 恢复默认背景
+  const resetBgBtn = $('#tmResetBg');
+  if (resetBgBtn) resetBgBtn.onclick = () => {
+    t.bgImage = null;
     save();
     close();
-    toast(t.bgDisplayMode === 'full' ? '已切换为原图背景' : '已切换为柔和背景');
+    toast('已恢复默认背景');
     if (musicSubView === 'player' && player.trackId === trackId) {
       renderMusicPlayerPage();
     }
   };
+
+  // 文字颜色
+  const textModeBtn = $('#tmTextMode');
+  if (textModeBtn) textModeBtn.onclick = () => {
+    close();
+    setTimeout(() => openTextModePicker(trackId), 150);
+  };
+
+  // 喜欢
   $('#tmFav').onclick = () => {
     close();
     toggleTrackFavorite(trackId);
   };
+
   $('#tmAddPl').onclick = () => { close(); addTrackToPlaylistModal(trackId); };
+
   const rmPl = $('#tmRemoveFromPl');
   if (rmPl) rmPl.onclick = () => {
     close();
@@ -5629,6 +5850,50 @@ function openTrackMoreMenu(trackId, source) {
   $('#tmDelete').onclick = async () => {
     close();
     await deleteTrackConfirm(trackId);
+  };
+}
+
+/* ---------- 选择文字深浅模式 ---------- */
+function openTextModePicker(trackId) {
+  const t = player.getTrackById(trackId);
+  if (!t) return;
+  const modal = $('#fontUrlModal');
+  const currentMode = t.textMode || 'auto';
+  modal.innerHTML = `
+    <div class="widget-panel">
+      <h3 class="edit-title">选择文字颜色</h3>
+      <div class="list">
+        <div class="list-item" data-mode="auto">
+          <div class="li-main"><div class="li-title">自动适配（默认）</div><div class="li-sub">有背景图时变白，无背景图时变黑</div></div>
+          ${currentMode === 'auto' ? '<span class="li-badge">使用中</span>' : '<span class="li-chev">›</span>'}
+        </div>
+        <div class="list-item" data-mode="light">
+          <div class="li-main"><div class="li-title">浅色文字（白色）</div><div class="li-sub">适合深色、暗色背景图</div></div>
+          ${currentMode === 'light' ? '<span class="li-badge">使用中</span>' : '<span class="li-chev">›</span>'}
+        </div>
+        <div class="list-item" data-mode="dark">
+          <div class="li-main"><div class="li-title">深色文字（黑色）</div><div class="li-sub">适合浅色、亮色背景图</div></div>
+          ${currentMode === 'dark' ? '<span class="li-badge">使用中</span>' : '<span class="li-chev">›</span>'}
+        </div>
+      </div>
+      <div class="edit-actions"><button class="edit-cancel" id="tmModeCancel" type="button">取消</button></div>
+    </div>`;
+  modal.classList.add('show');
+  const close = () => { modal.classList.remove('show'); modal.innerHTML = ''; };
+  modal.onclick = (e) => { if (e.target.id === 'fontUrlModal') close(); };
+  $('#tmModeCancel').onclick = close;
+  
+  modal.querySelector('.list').onclick = (e) => {
+    const item = e.target.closest('.list-item');
+    if (!item) return;
+    const mode = item.dataset.mode;
+    t.textMode = mode;
+    save();
+    close();
+    toast('文字颜色已更新');
+    if (musicSubView === 'player' && player.trackId === trackId) {
+      renderMusicPlayerPage();
+    }
   };
 }
 
@@ -5945,12 +6210,15 @@ function renderMusicPlayerPage() {
   const isFav = state.music.favorites.includes(t.id);
   const modeIcon = player.mode === 'loop-one' ? ICONS.loopOne : player.mode === 'shuffle' ? ICONS.shuffle : ICONS.loop;
   const modeActive = player.mode !== 'loop-all';
-  const bgMode = t.bgDisplayMode === 'full' ? 'full' : 'soft';
   const bgStyle = t.bgImage ? `background-image:url('${t.bgImage}');` : '';
+  // 👇新增：根据 textMode 决定使用 full (白字) 还是 soft (黑字)
+  let computedBgMode = t.bgImage ? 'full' : 'soft';
+  if (t.textMode === 'light') computedBgMode = 'full';
+  if (t.textMode === 'dark') computedBgMode = 'soft';
   const mainHTML = _playerLyricsView ? buildLyricsHTML(t) : buildDiscHTML(t);
 
   appView.innerHTML = `
-    <div class="music-player" data-bg-mode="${bgMode}">
+            <div class="music-player" data-bg-mode="${computedBgMode}">
       <div class="music-player-bg" style="${bgStyle}"></div>
       <div class="music-player-shade"></div>
       <div class="music-player-content">
@@ -6047,10 +6315,12 @@ function buildDiscHTML(t) {
 function buildLyricsHTML(t) {
   const lines = t.lyricsLines || [];
   if (!lines.length) {
+    const isOnline = t && t.source === 'online';
     return `<div class="music-lyrics">
       <div class="music-lyrics-empty">
         <div>暂无歌词</div>
-        <button id="addLyricsFromPlayer">添加歌词</button>
+        <button id="addLyricsFromPlayer">手动添加歌词</button>
+        ${isOnline ? `<button id="retryOnlineLyrics" style="margin-top:8px;">重新拉取在线歌词</button>` : ''}
       </div>
     </div>`;
   }
@@ -6067,8 +6337,35 @@ function buildLyricsHTML(t) {
 }
 function bindPlayerMain(t) {
   if (_playerLyricsView) {
+    // 1. 绑定“手动添加歌词”按钮（不再提前 return）
     const addBtn = $('#addLyricsFromPlayer');
-    if (addBtn) { addBtn.onclick = () => editTrackLyrics(t.id); return; }
+    if (addBtn) addBtn.onclick = () => editTrackLyrics(t.id);
+
+    // 2. 绑定“重新拉取在线歌词”按钮（仅在线歌曲、无歌词时出现）
+    const retryBtn = $('#retryOnlineLyrics');
+    if (retryBtn) {
+      retryBtn.onclick = async () => {
+        if (!t.onlineId) return;
+        showLoadingToast('重新拉取歌词…');
+        const raw = await fetchOnlineLyric({ id: t.onlineId, source: t.onlineSource || 'netease' });
+        hideLoadingToast();
+        if (!raw) { toast('这首歌暂时没有在线歌词'); return; }
+        const parsed = parseLRC(raw);
+        t.lyrics = raw;
+        t.lyricsLines = parsed.lines;
+        t.lyricsHasTime = parsed.hasTime;
+        save();
+        const main = $('#musicPlayerMain');
+        if (player.trackId !== t.id) return;
+        if (main) { main.innerHTML = buildLyricsHTML(t); bindPlayerMain(t); }
+        toast('歌词已加载');
+      };
+    }
+
+    // 3. 如果当前这首歌没有歌词行，到此为止（按钮已绑定，无需再处理歌词行）
+    if (!t.lyricsLines || !t.lyricsLines.length) return;
+
+    // 4. 原有逻辑：有时间戳 → 点击跳转 + 高亮；无时间戳 → 匀速滚动
     if (t.lyricsHasTime) {
       document.querySelectorAll('#musicLyricsInner .music-lyric-line').forEach(el => {
         el.addEventListener('click', () => {
@@ -6531,7 +6828,7 @@ function renderWidgetConfigForm(widget) {
     contentHTML = `
       <div class="field"><label>背景图片</label>
         <div style="display:flex;align-items:center;gap:12px;">
-          <div id="cfgAnnivBgPreview" style="width:80px;height:50px;border-radius:8px;background:inear-gradient(135deg,#f3f0f6,#e8e4ec);background-size:cover;background-position:center;flex-shrink:0;${cfg.bgImage ? `background-image:url('${cfg.bgImage}');` : ''}"></div>
+          <div id="cfgAnnivBgPreview" style="width:80px;height:50px;border-radius:8px;background:linear-gradient(135deg,#f3f0f6,#e8e4ec);background-size:cover;background-position:center;flex-shrink:0;${cfg.bgImage ? `background-image:url('${cfg.bgImage}');` : ''}"></div>
           <button class="btn-ghost" id="cfgAnnivBgBtn" style="border:none;background:rgba(120,120,128,.12);color:#3a3a3e;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;">选择图片</button>
           <button class="btn-ghost" id="cfgAnnivBgClear" style="border:none;background:rgba(217,122,122,.1);color:#c05040;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;${cfg.bgImage ? '' : 'display:none;'}">清除</button>
         </div>
@@ -6586,7 +6883,7 @@ function renderWidgetConfigForm(widget) {
     contentHTML = `
       <div class="field"><label>背景图片（上三分之二）</label>
         <div style="display:flex;align-items:center;gap:12px;">
-          <div id="cfgPcBgPreview" style="width:80px;height:50px;border-radius:10px;background:inear-gradient(135deg,#f3f0f6,#e8e4ec);background-size:cover;background-position:center;flex-shrink:0;${cfg.bgImage ? `background-image:url('${cfg.bgImage}');` : ''}"></div>
+          <div id="cfgPcBgPreview" style="width:80px;height:50px;border-radius:10px;background:linear-gradient(135deg,#f3f0f6,#e8e4ec);background-size:cover;background-position:center;flex-shrink:0;${cfg.bgImage ? `background-image:url('${cfg.bgImage}');` : ''}"></div>
           <button class="btn-ghost" id="cfgPcBgBtn" style="border:none;background:rgba(120,120,128,.12);color:#3a3a3e;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;">选择图片</button>
           <button class="btn-ghost" id="cfgPcBgClear" style="border:none;background:rgba(217,122,122,.1);color:#c05040;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;${cfg.bgImage ? '' : 'display:none;'}">清除</button>
         </div>
@@ -9601,7 +9898,6 @@ async function load() {
       state.music = {
         tracks: Array.isArray(s.music.tracks) ? s.music.tracks.map(t => {
           const hasTime = typeof t.lyricsHasTime === 'boolean' ? t.lyricsHasTime : (Array.isArray(t.lyricsLines) ? t.lyricsLines.some(l => l && typeof l.time === 'number') : false);
-          const bgMode = (t.bgDisplayMode === 'full') ? 'full' : 'soft';
           return {
             id: t.id || uid('tr_'),
             name: t.name || '未命名',
@@ -9610,10 +9906,12 @@ async function load() {
             duration: (typeof t.duration === 'number' && isFinite(t.duration)) ? t.duration : 0,
             cover: t.cover || null,
             bgImage: t.bgImage || null,
-            bgDisplayMode: bgMode,
+            textMode: t.textMode || 'auto',
             source: t.source || 'local',
             blobKey: t.blobKey || null,
             url: t.url || null,
+            onlineSource: t.onlineSource || null,
+            onlineId: t.onlineId || null, 
             lyrics: t.lyrics || '',
             lyricsLines: Array.isArray(t.lyricsLines) ? t.lyricsLines : null,
             lyricsHasTime: hasTime,
