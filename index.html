@@ -945,7 +945,7 @@ html,body{
 .friend-avatar{
   width:50px;height:50px;border-radius:14px;flex-shrink:0;
   overflow:hidden;position:relative;
-  background:linear-gradient(135deg,#d8d0c8,#b8b0a4);
+  background:linear-gradient(135deg,#e8e4ec,#cfc8d6);
   display:grid;place-items:center;
   color:#fff;font-size:20px;font-weight:500;
   background-size:cover;background-position:center;
@@ -1011,7 +1011,7 @@ html,body{
 .msg-avatar{
   width:40px;height:40px;border-radius:12px;
   flex-shrink:0;overflow:hidden;
-  background:linear-gradient(135deg,#d8d0c8,#b8b0a4);
+  background:linear-gradient(135deg,#e8e4ec,#cfc8d6);
   display:grid;place-items:center;
   color:#fff;font-size:16px;font-weight:500;
   box-shadow:var(--shadow-1);
@@ -1122,7 +1122,7 @@ html,body{
 .sticker-add:active{transform:scale(.96);}
 .wall-preview{
   width:52px;height:82px;border-radius:11px;flex-shrink:0;
-  background:linear-gradient(160deg,#e4dfd6,#b8b0a4);
+  background:linear-gradient(160deg,#f3f0f6,#dfd8e5);
   background-size:cover;background-position:center;
   border:.5px solid rgba(255,255,255,.7);
   box-shadow:var(--shadow-1);
@@ -1279,7 +1279,7 @@ html,body{
 .widget-type-item:active{transform:scale(.96);background:var(--bg-3);}
 .widget-type-item .wt-glyph{
   width:44px;height:44px;border-radius:14px;
-  background:linear-gradient(135deg,#c8c0b5,#a8a0a4);
+  background:linear-gradient(135deg,#d6d0dc,#b5aec2);
   display:grid;place-items:center;color:#fff;
   box-shadow:0 8px 20px -8px rgba(20,20,30,.3);
 }
@@ -1299,7 +1299,7 @@ html,body{
   gap:2px;width:48px;height:48px;margin:0 auto 6px;
 }
 .widget-size-item .ws-preview .ws-cell{background:rgba(120,120,128,.14);border-radius:2px;}
-.widget-size-item .ws-preview .ws-cell.fill{background:linear-gradient(135deg,#c8c0b5,#a8a0a4);}
+.widget-size-item .ws-preview .ws-cell.fill{background:linear-gradient(135deg,#d6d0dc,#b5aec2);}
 .widget-size-item .ws-label{font-size:11.5px;font-weight:600;color:var(--ink-2);}
 
 .calendar-app{display:flex;flex-direction:column;height:100%;background:var(--bg-1);}
@@ -1806,10 +1806,10 @@ html,body{
   flex-shrink:0;
 }
 .beauty-tile .tile-glyph svg{width:20px;height:20px;display:block;stroke-width:1.6;}
-.beauty-tile[data-tile="icon"] .tile-glyph{background:linear-gradient(135deg,#b8b0a4,#8a8088);}
-.beauty-tile[data-tile="font"] .tile-glyph{background:linear-gradient(135deg,#c8b8a8,#a89080);}
-.beauty-tile[data-tile="wall"] .tile-glyph{background:linear-gradient(135deg,#a8b8c8,#8090a8);}
-.beauty-tile[data-tile="json"] .tile-glyph{background:linear-gradient(135deg,#b8a8c8,#9080a8);}
+.beauty-tile[data-tile="icon"] .tile-glyph{background:#bacbe3;}
+.beauty-tile[data-tile="font"] .tile-glyph{background:#def1f5;}
+.beauty-tile[data-tile="wall"] .tile-glyph{background:#d1e4ca;} 
+.beauty-tile[data-tile="json"] .tile-glyph{background:#c5e8ee;}
 .beauty-tile .tile-name{font-size:15px;font-weight:600;color:var(--ink);letter-spacing:.2px;}
 .beauty-tile .tile-desc{font-size:11.5px;color:var(--ink-3);line-height:1.5;margin-top:-2px;}
 .beauty-section{margin-bottom:22px;}
@@ -1847,11 +1847,12 @@ html,body{
 .beauty-icon-cell:active{transform:scale(.94);}
 .beauty-icon-preview{
   width:64px;height:64px;border-radius:18px;
-  background:linear-gradient(135deg,#c8c0b5,#a8a0a4);
+  background:#bacbe3; /* 👈 统一使用这个色卡 */
   display:grid;place-items:center;color:#fff;
   box-shadow:var(--shadow-2);
   position:relative;overflow:hidden;
 }
+/* 👇 循环变色的代码已经删掉啦 👇 */
 .beauty-icon-preview svg{width:30px;height:30px;stroke-width:1.5;}
 .beauty-icon-preview img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
 .beauty-icon-preview.custom{box-shadow:var(--shadow-2), 0 0 0 2px rgba(110,125,148,.4) inset;}
@@ -1897,7 +1898,7 @@ html,body{
 .beauty-wall-row{display:flex;align-items:center;gap:14px;}
 .beauty-wall-preview{
   width:70px;height:110px;border-radius:14px;
-  background:linear-gradient(160deg,#e4dfd6,#b8b0a4);
+  background:linear-gradient(160deg,#f3f0f6,#dfd8e5);
   background-size:cover;background-position:center;
   flex-shrink:0;box-shadow:var(--shadow-1);
   border:1px solid rgba(255,255,255,.6);
@@ -1938,7 +1939,7 @@ html,body{
 .moments-cover-name{color:var(--ink);font-size:17px;font-weight:600;letter-spacing:.3px;}
 .moments-cover-avatar{
   width:72px;height:72px;border-radius:14px;
-  background:linear-gradient(135deg,#d8d0c8,#b8b0a4);
+  background:linear-gradient(135deg,#e8e4ec,#cfc8d6);
   border:3px solid #fff;overflow:hidden;
   display:grid;place-items:center;color:#fff;font-size:26px;font-weight:500;
   box-shadow:var(--shadow-2);cursor:pointer;
@@ -1954,7 +1955,7 @@ html,body{
 .moment-avatar{
   width:42px;height:42px;border-radius:12px;flex-shrink:0;
   overflow:hidden;
-  background:linear-gradient(135deg,#d8d0c8,#b8b0a4);
+  background:linear-gradient(135deg,#e8e4ec,#cfc8d6);
   display:grid;place-items:center;color:#fff;font-size:16px;font-weight:500;
 }
 .moment-avatar img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -2015,7 +2016,7 @@ html,body{
 .me-avatar{
   width:64px;height:64px;border-radius:16px;flex-shrink:0;
   overflow:hidden;
-  background:linear-gradient(135deg,#d8d0c8,#b8b0a4);
+  background:linear-gradient(135deg,#e8e4ec,#cfc8d6);
   display:grid;place-items:center;color:#fff;font-size:24px;font-weight:500;
 }
 .me-avatar img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -6530,7 +6531,7 @@ function renderWidgetConfigForm(widget) {
     contentHTML = `
       <div class="field"><label>背景图片</label>
         <div style="display:flex;align-items:center;gap:12px;">
-          <div id="cfgAnnivBgPreview" style="width:80px;height:50px;border-radius:8px;background:linear-gradient(135deg,#f5f0ea,#e8e0d5);background-size:cover;background-position:center;flex-shrink:0;${cfg.bgImage ? `background-image:url('${cfg.bgImage}');` : ''}"></div>
+          <div id="cfgAnnivBgPreview" style="width:80px;height:50px;border-radius:8px;background:inear-gradient(135deg,#f3f0f6,#e8e4ec);background-size:cover;background-position:center;flex-shrink:0;${cfg.bgImage ? `background-image:url('${cfg.bgImage}');` : ''}"></div>
           <button class="btn-ghost" id="cfgAnnivBgBtn" style="border:none;background:rgba(120,120,128,.12);color:#3a3a3e;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;">选择图片</button>
           <button class="btn-ghost" id="cfgAnnivBgClear" style="border:none;background:rgba(217,122,122,.1);color:#c05040;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;${cfg.bgImage ? '' : 'display:none;'}">清除</button>
         </div>
@@ -6551,13 +6552,13 @@ function renderWidgetConfigForm(widget) {
       </div>
       <div class="field"><label>左头像（AI）</label>
         <div style="display:flex;align-items:center;gap:12px;">
-          <div id="cfgCharAvatar" style="width:48px;height:48px;border-radius:50%;background:#ececef;display:grid;place-items:center;color:#a8a8b0;font-weight:600;overflow:hidden;background-size:cover;background-position:center;cursor:pointer;border:2px solid #fff;${cfg.charAvatar ? `background-image:url('${cfg.charAvatar}');` : ''}">${cfg.charAvatar ? '' : esc((cfg.charName||'C')[0])}</div>
+          <div id="cfgCharAvatar" style="width:48px;height:48px;border-radius:50%;background:#f2eff5;display:grid;place-items:center;color:#a8a8b0;font-weight:600;overflow:hidden;background-size:cover;background-position:center;cursor:pointer;border:2px solid #fff;${cfg.charAvatar ? `background-image:url('${cfg.charAvatar}');` : ''}">${cfg.charAvatar ? '' : esc((cfg.charName||'C')[0])}</div>
           <button class="btn-ghost" id="cfgCharAvatarBtn" style="border:none;background:rgba(120,120,128,.12);color:#3a3a3e;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;">选择图片</button>
         </div>
       </div>
       <div class="field"><label>右头像（用户）</label>
         <div style="display:flex;align-items:center;gap:12px;">
-          <div id="cfgUserAvatar" style="width:48px;height:48px;border-radius:50%;background:#ececef;display:grid;place-items:center;color:#a8a8b0;font-weight:600;overflow:hidden;background-size:cover;background-position:center;cursor:pointer;border:2px solid #fff;${cfg.userAvatar ? `background-image:url('${cfg.userAvatar}');` : ''}">${cfg.userAvatar ? '' : esc((cfg.userName||'U')[0])}</div>
+          <div id="cfgUserAvatar" style="width:48px;height:48px;border-radius:50%;background:#f2eff5;display:grid;place-items:center;color:#a8a8b0;font-weight:600;overflow:hidden;background-size:cover;background-position:center;cursor:pointer;border:2px solid #fff;${cfg.userAvatar ? `background-image:url('${cfg.userAvatar}');` : ''}">${cfg.userAvatar ? '' : esc((cfg.userName||'U')[0])}</div>
           <button class="btn-ghost" id="cfgUserAvatarBtn" style="border:none;background:rgba(120,120,128,.12);color:#3a3a3e;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;">选择图片</button>
         </div>
       </div>
@@ -6585,14 +6586,14 @@ function renderWidgetConfigForm(widget) {
     contentHTML = `
       <div class="field"><label>背景图片（上三分之二）</label>
         <div style="display:flex;align-items:center;gap:12px;">
-          <div id="cfgPcBgPreview" style="width:80px;height:50px;border-radius:10px;background:linear-gradient(135deg,#f5f0ea,#e8e0d5);background-size:cover;background-position:center;flex-shrink:0;${cfg.bgImage ? `background-image:url('${cfg.bgImage}');` : ''}"></div>
+          <div id="cfgPcBgPreview" style="width:80px;height:50px;border-radius:10px;background:inear-gradient(135deg,#f3f0f6,#e8e4ec);background-size:cover;background-position:center;flex-shrink:0;${cfg.bgImage ? `background-image:url('${cfg.bgImage}');` : ''}"></div>
           <button class="btn-ghost" id="cfgPcBgBtn" style="border:none;background:rgba(120,120,128,.12);color:#3a3a3e;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;">选择图片</button>
           <button class="btn-ghost" id="cfgPcBgClear" style="border:none;background:rgba(217,122,122,.1);color:#c05040;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;${cfg.bgImage ? '' : 'display:none;'}">清除</button>
         </div>
       </div>
       <div class="field"><label>头像</label>
         <div style="display:flex;align-items:center;gap:12px;">
-          <div id="cfgPcAvatar" style="width:64px;height:64px;border-radius:50%;background:#ececef;display:grid;place-items:center;color:#a8a8b0;font-weight:600;overflow:hidden;background-size:cover;background-position:center;border:3px solid #fff;box-shadow:0 6px 14px -6px rgba(0,0,0,.18);${cfg.avatar ? `background-image:url('${cfg.avatar}');` : ''}">${cfg.avatar ? '' : esc((cfg.name||'我')[0])}</div>
+          <div id="cfgPcAvatar" style="width:64px;height:64px;border-radius:50%;background:#f2eff5;display:grid;place-items:center;color:#a8a8b0;font-weight:600;overflow:hidden;background-size:cover;background-position:center;border:3px solid #fff;box-shadow:0 6px 14px -6px rgba(0,0,0,.18);${cfg.avatar ? `background-image:url('${cfg.avatar}');` : ''}">${cfg.avatar ? '' : esc((cfg.name||'我')[0])}</div>
           <button class="btn-ghost" id="cfgPcAvatarBtn" style="border:none;background:rgba(120,120,128,.12);color:#3a3a3e;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;">选择图片</button>
         </div>
       </div>
@@ -6624,7 +6625,7 @@ function renderWidgetConfigForm(widget) {
     contentHTML = `
       <div class="field"><label>对方头像</label>
         <div style="display:flex;align-items:center;gap:12px;">
-          <div id="cfgDlgAv1" style="width:48px;height:48px;border-radius:50%;background:#ececef;display:grid;place-items:center;color:#a8a8b0;font-weight:600;overflow:hidden;background-size:cover;background-position:center;border:2px solid #fff;${cfg.avatar1 ? `background-image:url('${cfg.avatar1}');` : ''}">${cfg.avatar1 ? '' : esc((cfg.name1 || 'A')[0])}</div>
+          <div id="cfgDlgAv1" style="width:48px;height:48px;border-radius:50%;background:#f2eff5;display:grid;place-items:center;color:#a8a8b0;font-weight:600;overflow:hidden;background-size:cover;background-position:center;border:2px solid #fff;${cfg.avatar1 ? `background-image:url('${cfg.avatar1}');` : ''}">${cfg.avatar1 ? '' : esc((cfg.name1 || 'A')[0])}</div>
           <button class="btn-ghost" id="cfgDlgAv1Btn" style="border:none;background:rgba(120,120,128,.12);color:#3a3a3e;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;">选择图片</button>
         </div>
       </div>
@@ -6632,7 +6633,7 @@ function renderWidgetConfigForm(widget) {
       <div class="field"><label>对方气泡</label><input type="text" id="cfgDlgText1" value="${esc(cfg.text1 || '在吗？')}" maxlength="24"></div>
       <div class="field"><label>我的头像</label>
         <div style="display:flex;align-items:center;gap:12px;">
-          <div id="cfgDlgAv2" style="width:48px;height:48px;border-radius:50%;background:#ececef;display:grid;place-items:center;color:#a8a8b0;font-weight:600;overflow:hidden;background-size:cover;background-position:center;border:2px solid #fff;${cfg.avatar2 ? `background-image:url('${cfg.avatar2}');` : ''}">${cfg.avatar2 ? '' : esc((cfg.name2 || '我')[0])}</div>
+          <div id="cfgDlgAv2" style="width:48px;height:48px;border-radius:50%;background:#f2eff5;display:grid;place-items:center;color:#a8a8b0;font-weight:600;overflow:hidden;background-size:cover;background-position:center;border:2px solid #fff;${cfg.avatar2 ? `background-image:url('${cfg.avatar2}');` : ''}">${cfg.avatar2 ? '' : esc((cfg.name2 || '我')[0])}</div>
           <button class="btn-ghost" id="cfgDlgAv2Btn" style="border:none;background:rgba(120,120,128,.12);color:#3a3a3e;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;">选择图片</button>
         </div>
       </div>
@@ -8907,7 +8908,7 @@ function openBeautyIconSheet(key) {
     <div class="widget-panel">
       <h3 class="edit-title">${esc(app.name)} 图标</h3>
       <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:6px 0 18px;">
-        <div class="beauty-icon-preview" style="width:88px;height:88px;border-radius:24px;${custom ? '' : 'background:linear-gradient(135deg,#c8c0b5,#a8a0a4);'}">${previewInner}</div>
+        <div class="beauty-icon-preview" style="width:88px;height:88px;border-radius:24px;${custom ? '' : 'background:#bacbe3;'}">${previewInner}</div>
         <div style="font-size:12.5px;color:#8a8a90;">${custom ? '当前：已自定义' : '当前：默认图标'}</div>
       </div>
       <div class="edit-actions"><button class="edit-cancel" id="beautyIconCancel">取消</button><button class="edit-save" id="beautyIconPick">选择图片</button></div>
