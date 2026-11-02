@@ -5336,82 +5336,7 @@ async function fetchOnlineLyric(track) {
   }
 }
 
-async function playOnlineTrack(track) {
-  if (!track || !track.id) return;
-  showLoadingToast('获取播放地址…');
-  try {
-    const url = `https://music-api.gdstudio.xyz/api.php?types=url&source=netease&id=${encodeURIComponent(track.id)}&br=320`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('获取播放地址失败');
-    const data = await res.json();
-    const playUrl = data.url || data.data?.url || '';
-    if (!playUrl) throw new Error('该歌曲暂时无法播放');
 
-    // 尝试拉取歌词（失败不影响播放）
-    let lyricRaw = '';
-    try {
-      lyricRaw = await fetchOnlineLyric(track);
-    } catch (_) {}
-
-    hideLoadingToast();
-
-    const existing = state.music.tracks.find(t => t.source === 'online' && t.url === playUrl);
-    let trackId;
-    if (existing) {
-      trackId = existing.id;
-      if (!existing.onlineId && track.id) {
-        existing.onlineId = track.id;
-        existing.onlineSource = track.source || 'netease';
-        save();
-      }
-      if (!existing.lyrics && lyricRaw) {
-        existing.lyrics = lyricRaw;
-        const parsed = parseLRC(lyricRaw);
-        existing.lyricsLines = parsed.lines;
-        existing.lyricsHasTime = parsed.hasTime;
-        save();
-      }
-    } else {
-      trackId = uid('tr_');
-      let lyrics = '', lyricsLines = null, lyricsHasTime = false;
-      if (lyricRaw) {
-        const parsed = parseLRC(lyricRaw);
-        lyrics = lyricRaw;
-        lyricsLines = parsed.lines;
-        lyricsHasTime = parsed.hasTime;
-      }
-      state.music.tracks.push({
-        id: trackId,
-        name: track.name,
-        artist: track.artist,
-        album: track.album || '',
-        duration: track.duration || 0,
-        cover: track.album_image || null,
-        bgImage: null,
-        textMode: 'auto',
-        source: 'online',
-        blobKey: null,
-        url: playUrl,
-        onlineSource: track.source || 'netease',
-        onlineId: track.id,
-        lyrics,
-        lyricsLines,
-        lyricsHasTime,
-        addedAt: Date.now()
-      });
-      save();
-    }
-
-    player.init();
-    player.unlocked = true;
-    player.setQueue([trackId], 0);
-    await player.load(trackId, true);
-    openPlayerPage('online-search');
-  } catch (e) {
-    hideLoadingToast();
-    toast('播放失败：' + friendlyError(e));
-  }
-}
 function renderMusicLibrary() {
   const tracks = state.music.tracks;
   const listHTML = tracks.length
@@ -5443,6 +5368,148 @@ function renderMusicLibrary() {
     await importMusicFiles(files);
   };
   bindMusicTrackList(tracks.map(t => t.id), 'library');
+}
+
+async function playOnlineTrack(track) {
+  if (!track || !track.id) return;
+  showLoadingToast('获取播放地址…');
+  try {
+    const url = `https://music-api.gdstudio.xyz/api.php?types=url&source=netease&id=${encodeURIComponent(track.id)}&br=320`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('获取播放地址失败');
+    const data = await res.json();
+    const playUrl = data.url || data.data?.url || '';
+    if (!playUrl) throw new Error('该歌曲暂时无法播放');
+
+    let lyricRaw = '';
+    try { lyricRaw = await fetchOnlineLyric(track); } catch (_) {}
+
+    hideLoadingToast();
+
+    const existing = state.music.tracks.find(t => t.source === 'online' && t.url === playUrl);
+    let trackId;
+    if (existing) {
+      trackId = existing.id;
+      if (!existing.onlineId && track.id) {
+        existing.onlineId = track.id;
+        existing.onlineSource = track.source || 'netease';
+        save();
+      }
+      if (!existing.lyrics && lyricRaw) {
+        existing.lyrics = lyricRaw;
+        const parsed = parseLRC(lyricRaw);
+        existing.lyricsLines = parsed.lines;
+        existing.lyricsHasTime = parsed.hasTime;
+        save();
+      }
+      if (!existing.cover) {
+        if (track.album_image) {
+          existing.cover = track.album_image;
+          save();
+        } else {
+          fetchOnlineCover(existing, true).catch(() => {});
+        }
+      }
+    } else {
+      trackId = uid('tr_');
+      let lyrics = '', lyricsLines = null, lyricsHasTime = false;
+      if (lyricRaw) {
+        const parsed = parseLRC(lyricRaw);
+        lyrics = lyricRaw;
+        lyricsLines = parsed.lines;
+        lyricsHasTime = parsed.hasTime;
+      }
+      state.music.tracks.push({
+        id: trackId, name: track.name, artist: track.artist,
+        album: track.album || '', duration: track.duration || 0,
+        cover: track.album_image || null, bgImage: null, textMode: 'auto',
+        source: 'online', blobKey: null, url: playUrl,
+        onlineSource: track.source || 'netease', onlineId: track.id,
+        lyrics, lyricsLines, lyricsHasTime, addedAt: Date.now()
+      });
+      save();
+      
+      if (!track.album_image) {
+        const newTrack = state.music.tracks.find(t => t.id === trackId);
+        if (newTrack) fetchOnlineCover(newTrack, true).catch(() => {});
+      }
+    }
+
+    player.init();
+    player.unlocked = true;
+    player.setQueue([trackId], 0);
+    await player.load(trackId, true);
+    openPlayerPage('online-search');
+  } catch (e) {
+    hideLoadingToast();
+    toast('播放失败：' + friendlyError(e));
+  }
+}
+
+/* ============================================================
+   在线匹配歌曲封面
+   ============================================================ */
+async function fetchOnlineCover(track, silent = false) {
+  if (!track) return;
+  const keyword = `${track.name || ''} ${track.artist || ''}`.trim();
+  if (!keyword) { if (!silent) toast('歌曲信息不足，无法搜索'); return; }
+  
+  if (!silent) showLoadingToast('正在搜索封面…');
+  try {
+    const url = `https://music-api.gdstudio.xyz/api.php?types=search&source=netease&name=${encodeURIComponent(keyword)}&count=5&pages=1`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('搜索请求失败');
+    const data = await res.json();
+    const arr = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+    if (!arr.length) throw new Error('未找到相关歌曲');
+    
+    let best = arr[0];
+    const tn = (track.name || '').toLowerCase();
+    for (const item of arr) {
+      const iname = (item.name || '').toLowerCase();
+      const iartist = (item.artist && Array.isArray(item.artist) ? item.artist.join(' ') : (item.artist || '')).toLowerCase();
+      const tartist = (track.artist || '').toLowerCase();
+      if (iname === tn && (iartist.includes(tartist) || tartist.includes(iartist))) {
+        best = item; break; 
+      }
+      if (iname.includes(tn) || tn.includes(iname)) {
+        best = item; 
+      }
+    }
+    
+    const pic = best.pic || best.album_image;
+    if (!pic) throw new Error('该歌曲暂无封面');
+    
+    track.cover = pic;
+    save();
+    if (!silent) hideLoadingToast();
+    
+    if (!silent) {
+      toast('封面已更新');
+      if (musicSubView === 'player' && player.trackId === track.id) {
+        renderMusicPlayerPage(); 
+      } else if (musicSubView === 'library') {
+        renderMusicLibrary();
+      } else if (musicSubView === 'playlist') {
+        renderMusicPlaylistPage();
+      } else if (musicSubView === 'main') {
+        renderMusicMain();
+      }
+    } else {
+      if (musicSubView === 'player' && player.trackId === track.id) {
+        const coverEl = document.querySelector('.music-disc-cover');
+        if (coverEl) {
+          coverEl.style.backgroundImage = `url('${pic}')`;
+          coverEl.innerHTML = '';
+        }
+      }
+    }
+  } catch (e) {
+    if (!silent) {
+      hideLoadingToast();
+      toast('获取封面失败：' + friendlyError(e));
+    }
+  }
 }
 
 function musicTrackItemHTML(t, source) {
@@ -5779,7 +5846,9 @@ function openTrackMoreMenu(trackId, source) {
       <div class="list">
         <div class="list-item" id="tmEdit"><div class="li-main"><div class="li-title">编辑信息</div><div class="li-sub">歌曲名 / 演唱者 / 专辑</div></div><span class="li-chev">›</span></div>
         <div class="list-item" id="tmLyrics"><div class="li-main"><div class="li-title">${t.lyrics ? '编辑歌词' : '添加歌词'}</div><div class="li-sub">${t.lyricsHasTime ? '带时间戳，精确跟随' : (t.lyricsLines && t.lyricsLines.length ? '无时间戳，匀速滚动' : '支持粘贴或导入 .lrc')}</div></div><span class="li-chev">›</span></div>
-        <div class="list-item" id="tmCover"><div class="li-main"><div class="li-title">替换封面</div></div><span class="li-chev">›</span></div>
+                <div class="list-item" id="tmCover"><div class="li-main"><div class="li-title">替换封面</div></div><span class="li-chev">›</span></div>
+        <!-- 👇新增：在线匹配封面 👇 -->
+        <div class="list-item" id="tmFetchCover"><div class="li-main"><div class="li-title">在线匹配封面</div><div class="li-sub">根据歌名与歌手自动搜索专辑图</div></div><span class="li-chev">›</span></div>
         <div class="list-item" id="tmBg"><div class="li-main"><div class="li-title">${hasBgImage ? '替换播放背景' : '设置播放背景'}</div></div><span class="li-chev">›</span></div>
         ${hasBgImage ? `<div class="list-item" id="tmResetBg"><div class="li-main"><div class="li-title" style="color:var(--danger);">恢复默认背景</div></div><span class="li-chev">›</span></div>` : ''}
         <!-- 👇新增：文字颜色菜单项 -->
@@ -5803,6 +5872,7 @@ function openTrackMoreMenu(trackId, source) {
   $('#tmEdit').onclick = () => { close(); editTrackInfo(trackId); };
   $('#tmLyrics').onclick = () => { close(); editTrackLyrics(trackId); };
   $('#tmCover').onclick = () => { close(); changeTrackImage(trackId, 'cover'); };
+  $('#tmFetchCover').onclick = () => { close(); fetchOnlineCover(t); };
   $('#tmBg').onclick = () => { close(); changeTrackImage(trackId, 'bgImage'); };
 
   // 恢复默认背景
