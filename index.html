@@ -3776,9 +3776,11 @@ const player = {
   queueIndex: -1,
   mode: 'loop-all',
   unlocked: false,
-  listeners: new Set(),
+    listeners: new Set(),
   _objectUrls: {},
   _lastNotify: 0,
+  _urlRefreshing: false,
+  _lastUrlRetryAt: 0,
 
   init() {
     if (this.audio) return;
@@ -3817,12 +3819,9 @@ const player = {
     a.addEventListener('pause', () => { this.playing = false; this.notify(); });
     a.addEventListener('ended', () => { this.handleEnded(); });
 
-    this.setupMediaSession();
-  },
-
-  subscribe(fn) {
-        a.addEventListener('error', async () => {
+    a.addEventListener('error', async () => {
       this.playing = false;
+      this.notify();
       const t = this.getTrack();
       const now = Date.now();
       const canRetry = t && t.source === 'online' && t.onlineId
@@ -3831,22 +3830,21 @@ const player = {
       if (canRetry) {
         this._urlRefreshing = true;
         this._lastUrlRetryAt = now;
+        let newUrl = '';
         try {
-          const newUrl = await fetchOnlinePlayUrlById(t.onlineId, t.onlineSource || 'netease');
-          this._urlRefreshing = false;
-          if (newUrl && newUrl !== t.url) {
-            t.url = newUrl;
-            save();
-            this.load(t.id, true);
-            return;
-          }
-        } catch (_) {
-          this._urlRefreshing = false;
+          newUrl = await fetchOnlinePlayUrlById(t.onlineId, t.onlineSource || 'netease');
+        } catch (_) {}
+        this._urlRefreshing = false;
+        if (newUrl && newUrl !== t.url) {
+          t.url = newUrl;
+          save();
+          this.load(t.id, true);
+          return;
         }
+      }
       toast('这首歌暂时听不了，换一首试试');
-    }
-    this.notify();
     });
+
     this.setupMediaSession();
   },
 
@@ -3855,6 +3853,7 @@ const player = {
     try { fn(this); } catch (_) {}
     return () => this.listeners.delete(fn);
   },
+
   unsubscribe(fn) { this.listeners.delete(fn); },
   notify() {
     this.listeners.forEach(fn => { try { fn(this); } catch (_) {} });
@@ -10830,12 +10829,18 @@ function renderGlobalPlayer() {
   wrap.classList.add('show');
 
   // 如果当前没有渲染，或者形态变了，才重新生成 HTML
+  // 如果当前没有渲染，或者形态变了，才重新生成 HTML
   const currentMode = wrap.dataset.mode;
   if (!wrap.innerHTML || currentMode !== gpState.mode) {
     wrap.dataset.mode = gpState.mode;
     wrap.innerHTML = gpState.mode === 'full' ? buildGPFullHTML(t) : buildGPDiscHTML(t);
-    wrap.className = 'gp-animate'; // 添加入场动画
+    
+    // 👇 修复：使用 classList.add 而不是直接覆盖 className 👇
+    wrap.classList.remove('gp-animate');
+    void wrap.offsetWidth; // 强制重绘以重新触发动画
+    wrap.classList.add('gp-animate');
     setTimeout(() => wrap.classList.remove('gp-animate'), 350);
+    
     bindGlobalPlayerEvents();
   } else {
     // 如果只是状态更新，做局部刷新
@@ -10924,6 +10929,8 @@ function applyGPPosition() {
 }
 
 // 绑定全局播放器交互事件
+// 绑定全局播放器交互事件
+// 绑定全局播放器交互事件
 function bindGlobalPlayerEvents() {
   const wrap = document.getElementById('globalPlayerWrap');
   if (!wrap) return;
@@ -10931,124 +10938,100 @@ function bindGlobalPlayerEvents() {
   const playBtn = wrap.querySelector('#gpPlay');
   const nextBtn = wrap.querySelector('#gpNext');
   const minBtn = wrap.querySelector('#gpMinimize');
-  const mainClick = wrap.querySelector('#gpMainClick');
-  const disc = wrap.querySelector('#gpDisc');
 
-  // 播放/暂停
+  // 1. 播放/暂停
   if (playBtn) {
-    playBtn.addEventListener('pointerdown', e => e.stopPropagation());
-    playBtn.addEventListener('click', (e) => {
+    playBtn.onclick = (e) => {
       e.stopPropagation();
       player.init(); player.unlocked = true; player.toggle();
       updateGlobalPlayerUI(player.getTrack());
-    });
+    };
   }
 
-  // 下一首
+  // 2. 下一首
   if (nextBtn) {
-    nextBtn.addEventListener('pointerdown', e => e.stopPropagation());
-    nextBtn.addEventListener('click', (e) => {
+    nextBtn.onclick = (e) => {
       e.stopPropagation();
       player.unlocked = true;
       player.next();
-    });
+    };
   }
 
-  // 缩小/展开
+  // 3. 缩小/展开
   if (minBtn) {
-    minBtn.addEventListener('pointerdown', e => e.stopPropagation());
-    minBtn.addEventListener('click', (e) => {
+    minBtn.onclick = (e) => {
       e.stopPropagation();
       gpState.mode = 'disc';
       gpState.side = gpState.x > window.innerWidth / 2 ? 'right' : 'left';
       renderGlobalPlayer();
-    });
+    };
   }
 
-  if (disc) {
-    disc.addEventListener('pointerdown', e => e.stopPropagation());
-    // 单击展开，双击进入播放页
-    let clickTimer = null;
-    disc.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (gpState.hasMoved) return;
-      if (clickTimer) {
-        clearTimeout(clickTimer);
-        clickTimer = null;
-        openApp('music'); openPlayerPage('main');
-      } else {
-        clickTimer = setTimeout(() => {
-          clickTimer = null;
-          gpState.mode = 'full';
-          gpState.side = gpState.x > window.innerWidth / 2 ? 'right' : 'left';
-          renderGlobalPlayer();
-        }, 250);
-      }
-    });
-  }
+  // 4. 处理点击与拖拽 (统一在 wrap.onpointerdown 里处理)
+  let _dragStartX = 0, _dragStartY = 0, _initialX = 0, _initialY = 0;
+  let _isDragging = false, _hasMoved = false;
+  let _clickTimer = null;
 
-  if (mainClick) {
-    mainClick.addEventListener('pointerdown', e => e.stopPropagation());
-    mainClick.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (gpState.hasMoved) return;
-      openApp('music'); openPlayerPage('main');
-    });
-  }
+  const onPointerMove = (e) => {
+    if (!_isDragging) return;
+    const dx = e.clientX - _dragStartX;
+    const dy = e.clientY - _dragStartY;
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) _hasMoved = true;
 
-  // 拖拽逻辑
-  let _dragTarget = wrap;
-  _dragTarget.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('button')) return; // 按钮上不拖拽
-    gpState.isDragging = true;
-    gpState.hasMoved = false;
-    gpState._startX = e.clientX;
-    gpState._startY = e.clientY;
-    
-    // 获取当前相对于 screen 的位置
-    const screenRect = $('#screen').getBoundingClientRect();
-    gpState._startElX = e.clientX - screenRect.left - gpState.x;
-    gpState._startElY = e.clientY - screenRect.top - gpState.y;
+    if (_hasMoved) {
+      const screenRect = $('#screen').getBoundingClientRect();
+      let newX = e.clientX - screenRect.left - _initialX;
+      let newY = e.clientY - screenRect.top - _initialY;
 
-    wrap.classList.add('dragging');
-    try { _dragTarget.setPointerCapture(e.pointerId); } catch(_) {}
-    e.preventDefault();
-  });
+      const rect = wrap.getBoundingClientRect();
+      const sw = window.innerWidth, sh = window.innerHeight;
+      const w = rect.width, h = rect.height;
+      newX = Math.max(0, Math.min(sw - w, newX));
+      newY = Math.max(40, Math.min(sh - h - 100, newY));
 
-  _dragTarget.addEventListener('pointermove', (e) => {
-    if (!gpState.isDragging) return;
-    const dx = e.clientX - gpState._startX;
-    const dy = e.clientY - gpState._startY;
-    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) gpState.hasMoved = true;
-
-    const screenRect = $('#screen').getBoundingClientRect();
-    let newX = e.clientX - screenRect.left - gpState._startElX;
-    let newY = e.clientY - screenRect.top - gpState._startElY;
-
-    // 边界限制
-    const rect = wrap.getBoundingClientRect();
-    const sw = window.innerWidth, sh = window.innerHeight;
-    const w = rect.width, h = rect.height;
-    newX = Math.max(0, Math.min(sw - w, newX));
-    newY = Math.max(40, Math.min(sh - h - 100, newY));
-
-    gpState.x = newX;
-    gpState.y = newY;
-
-    // 直接修改 left/top，不走 transition
-    wrap.style.left = newX + 'px';
-    wrap.style.top = newY + 'px';
-  });
-
-  const endDrag = (e) => {
-    if (!gpState.isDragging) return;
-    gpState.isDragging = false;
-    wrap.classList.remove('dragging');
-    if (_dragTarget.hasPointerCapture && _dragTarget.hasPointerCapture(e.pointerId)) {
-      _dragTarget.releasePointerCapture(e.pointerId);
+      gpState.x = newX;
+      gpState.y = newY;
+      wrap.style.left = newX + 'px';
+      wrap.style.top = newY + 'px';
     }
-    if (gpState.hasMoved) {
-      // 判断偏向左侧还是右侧
+  };
+
+  const onPointerUp = (e) => {
+    if (!_isDragging) return;
+    _isDragging = false;
+    wrap.classList.remove('dragging');
+    
+    // 解绑全局监听器，防止内存泄漏
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    document.removeEventListener('pointercancel', onPointerUp);
+
+    if (!_hasMoved) {
+      // 【未移动】判定为点击
+      const isDisc = gpState.mode === 'disc';
+      if (isDisc) {
+        if (_clickTimer) {
+          // 双击逻辑：进播放页
+          clearTimeout(_clickTimer);
+          _clickTimer = null;
+          openApp('music'); openPlayerPage('main');
+        } else {
+          // 单击逻辑：延迟 250ms 展开为完整形态
+          _clickTimer = setTimeout(() => {
+            _clickTimer = null;
+            gpState.mode = 'full';
+            gpState.side = gpState.x > window.innerWidth / 2 ? 'right' : 'left';
+            renderGlobalPlayer();
+          }, 250);
+        }
+      } else {
+        // 完整形态：点击非按钮区域进入播放页
+        if (!e.target.closest('button')) {
+          openApp('music'); openPlayerPage('main');
+        }
+      }
+    } else {
+      // 【有移动】判定为拖拽结束，自动吸附边缘
       const centerX = gpState.x + (wrap.getBoundingClientRect().width / 2);
       gpState.side = centerX > window.innerWidth / 2 ? 'right' : 'left';
       applyGPPosition();
@@ -11056,8 +11039,26 @@ function bindGlobalPlayerEvents() {
     }
   };
 
-  _dragTarget.addEventListener('pointerup', endDrag);
-  _dragTarget.addEventListener('pointercancel', endDrag);
+  // 重写 pointerdown 逻辑，不使用 setPointerCapture，而是把 move 和 up 绑到 document 上
+  wrap.onpointerdown = (e) => {
+    if (e.target.closest('button')) return; // 按钮点击不触发拖拽
+
+    _isDragging = true;
+    _hasMoved = false;
+    _dragStartX = e.clientX;
+    _dragStartY = e.clientY;
+    
+    const screenRect = $('#screen').getBoundingClientRect();
+    _initialX = e.clientX - screenRect.left - gpState.x;
+    _initialY = e.clientY - screenRect.top - gpState.y;
+
+    wrap.classList.add('dragging');
+
+    // 绑定到 document 上，这样手指/鼠标移出悬浮条区域也能顺畅拖拽
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerUp);
+  };
 }
 
 function saveGPState() {
