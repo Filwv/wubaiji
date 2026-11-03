@@ -2922,6 +2922,75 @@ html,body{
   100% { transform: scale(1); opacity: 1; }
 }
 .gp-animate { animation: gp-pop 0.3s cubic-bezier(.34,1.6,.4,1) forwards; }
+/* ===== 批量导入链接 ===== */
+.url-import-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 8px;
+}
+.url-import-row {
+  position: relative;
+  background: var(--bg-2);
+  border-radius: 12px;
+  padding: 10px 34px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid rgba(60,60,67,.06);
+  transition: border-color .2s, background .2s;
+}
+.url-import-row.invalid {
+  border-color: rgba(217,122,122,.4);
+  background: rgba(217,122,122,.04);
+}
+.url-import-row .url-import-del {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(120,120,128,.10);
+  color: var(--ink-3);
+  font-size: 13px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  line-height: 1;
+  transition: background .15s, color .15s, transform .2s;
+}
+.url-import-row .url-import-del:active {
+  transform: scale(.88);
+  background: rgba(217,122,122,.18);
+  color: var(--danger);
+}
+.url-import-row input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+  padding: 4px 0;
+  border-bottom: .5px solid rgba(60,60,67,.08);
+}
+.url-import-row input:last-of-type {
+  border-bottom: none;
+}
+.url-import-row input::placeholder {
+  color: var(--ink-4);
+}
+.url-import-row input.url-import-url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+.url-import-row.invalid input.url-import-url {
+  color: #c05040;
+}
 </style>
 </head>
 <body>
@@ -5581,8 +5650,12 @@ function openMusicMainMoreMenu() {
     <div class="widget-panel">
       <h3 class="edit-title">更多</h3>
       <div class="list">
-        <div class="list-item" id="mmmSearch">
-          <div class="li-main"><div class="li-title">搜索在线歌曲</div><div class="li-sub">GD 音乐台</div></div>
+        <div class="list-item" id="mmmImportFile">
+          <div class="li-main"><div class="li-title">导入歌曲文件</div><div class="li-sub">从设备选择音频文件</div></div>
+          <span class="li-chev">›</span>
+        </div>
+        <div class="list-item" id="mmmImportUrl">
+          <div class="li-main"><div class="li-title">导入在线链接</div><div class="li-sub">粘贴音频直链，可填写歌名</div></div>
           <span class="li-chev">›</span>
         </div>
         <div class="list-item" id="mmmEditProfile">
@@ -5605,7 +5678,23 @@ function openMusicMainMoreMenu() {
   const close = () => { modal.classList.remove('show'); modal.innerHTML = ''; };
   modal.onclick = (e) => { if (e.target.id === 'widgetConfigModal') close(); };
   $('#mmmCancel').onclick = close;
-  $('#mmmSearch').onclick = () => { close(); musicSubView = 'online-search'; renderMusicApp(); };
+  $('#mmmImportFile').onclick = () => {
+    close();
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*,.mp3,.m4a,.wav';
+    input.multiple = true;
+    input.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;';
+    document.body.appendChild(input);
+    input.onchange = async (e) => {
+      if (document.body.contains(input)) input.remove();
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      await importMusicFiles(files);
+    };
+    input.click();
+  };
+  $('#mmmImportUrl').onclick = () => { close(); importMusicFromUrls(); };
   $('#mmmEditProfile').onclick = () => { close(); openMusicProfileEditor(); };
   $('#mmmChangeCover').onclick = () => { close(); pickMusicMainCover(); };
   const clearBtn = $('#mmmClearCover');
@@ -5855,32 +5944,19 @@ function renderMusicLibrary() {
   const tracks = state.music.tracks;
   const listHTML = tracks.length
     ? tracks.map(t => musicTrackItemHTML(t, 'library')).join('')
-    : `<div class="music-empty"><div class="em-icon">${ICONS.musicNote}</div><div>还没有本地音乐<br><span style="font-size:12px;">点右上角"导入"选择文件，或"链接"粘贴在线直链</span></div></div>`;
+    : `<div class="music-empty"><div class="em-icon">${ICONS.musicNote}</div><div>还没有本地音乐<br><span style="font-size:12px;">去音乐主页右上角 ⋯ → 更多<br>导入歌曲文件或在线链接</span></div></div>`;
   appView.innerHTML = `
     <div class="music-app">
       <div class="music-header">
         <button class="back-btn" id="musicLibBack">‹ 音乐</button>
         <h1>本地音乐</h1>
-        <div style="margin-left:auto;display:flex;gap:2px;z-index:2;">
-          <button class="music-header-btn" id="musicImportLinkBtn" style="margin-left:0;">链接</button>
-          <button class="music-header-btn" id="musicImportBtn" style="margin-left:0;">导入</button>
-        </div>
       </div>
       <div class="music-body">
         <div class="music-track-list" id="musicTrackList">${listHTML}</div>
       </div>
-      <input type="file" id="musicImportFile" accept="audio/*,.mp3,.m4a,.wav" multiple hidden>
     </div>
   `;
   $('#musicLibBack').onclick = () => { musicSubView = 'main'; renderMusicApp(); };
-  $('#musicImportBtn').onclick = () => $('#musicImportFile').click();
-  $('#musicImportLinkBtn').onclick = () => importMusicFromUrls();
-  $('#musicImportFile').onchange = async (e) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = '';
-    if (!files.length) return;
-    await importMusicFiles(files);
-  };
   bindMusicTrackList(tracks.map(t => t.id), 'library');
 }
 
@@ -6250,42 +6326,198 @@ async function importMusicFromUrls() {
   modal.innerHTML = `
     <div class="widget-panel">
       <h3 class="edit-title">导入在线链接</h3>
-      <textarea class="edit-textarea" id="musicUrlInput" placeholder="粘贴音频直链，每行一个&#10;https://example.com/song.mp3" style="min-height:140px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;"></textarea>
-      <p class="hint">支持 .mp3 / .m4a / .wav 等音频直链。同链接只保留一份。https 页面只能播放 https 链接。</p>
+      <p class="hint" style="padding:0 4px 10px;">链接必填，歌名/歌手可选。同链接只保留一份。https 页面只能播放 https 链接。</p>
+      <div class="url-import-list" id="urlImportList"></div>
+      <div class="btn-row" style="margin-top:6px;">
+        <button class="btn-dashed" id="urlImportAddRow" style="margin:0;">${ICONS.plus}<span>添加一行</span></button>
+        <button class="btn-dashed" id="urlImportPasteMany" style="margin:0;">${ICONS.link}<span>批量粘贴链接</span></button>
+      </div>
+      <p class="hint" id="urlImportHint" style="padding:10px 4px 0;min-height:16px;"></p>
       <div class="edit-actions">
-        <button class="edit-cancel" id="musicUrlCancel" type="button">取消</button>
-        <button class="edit-save" id="musicUrlConfirm" type="button">导入</button>
+        <button class="edit-cancel" id="urlImportCancel" type="button">取消</button>
+        <button class="edit-save" id="urlImportConfirm" type="button">导入</button>
       </div>
     </div>`;
   modal.classList.add('show');
-  setTimeout(() => { const i = $('#musicUrlInput'); if (i) i.focus(); }, 240);
+
+  const listEl = $('#urlImportList');
+  const hintEl = $('#urlImportHint');
+
+  const collectEntries = () => {
+    const entries = [];
+    listEl.querySelectorAll('.url-import-row').forEach(row => {
+      const url = row.querySelector('.url-import-url').value.trim();
+      if (!url) return;
+      entries.push({
+        url,
+        name: row.querySelector('.url-import-name').value.trim(),
+        artist: row.querySelector('.url-import-artist').value.trim()
+      });
+    });
+    return entries;
+  };
+
+  const updateHint = () => {
+    if (!hintEl) return;
+    const entries = collectEntries();
+    if (!entries.length) { hintEl.textContent = ''; hintEl.style.color = ''; return; }
+    const named = entries.filter(e => e.name).length;
+    const invalid = listEl.querySelectorAll('.url-import-row.invalid').length;
+    let text = `已填写 ${entries.length} 个链接`;
+    if (named) text += `，${named} 个带歌名`;
+    if (invalid) text += `，${invalid} 个格式不对`;
+    hintEl.textContent = text;
+    hintEl.style.color = invalid ? 'var(--danger)' : '';
+  };
+
+  const createRow = (data = {}) => {
+    const row = document.createElement('div');
+    row.className = 'url-import-row';
+    row.innerHTML = `
+      <button class="url-import-del" type="button" aria-label="删除">✕</button>
+      <input type="text" class="url-import-name" placeholder="歌名（可选）" value="${esc(data.name || '')}" maxlength="60" autocomplete="off">
+      <input type="text" class="url-import-artist" placeholder="歌手（可选）" value="${esc(data.artist || '')}" maxlength="40" autocomplete="off">
+      <input type="text" class="url-import-url" placeholder="https://example.com/song.mp3" value="${esc(data.url || '')}" spellcheck="false" autocomplete="off">
+    `;
+    const urlInput = row.querySelector('.url-import-url');
+    const refreshInvalid = () => {
+      const v = urlInput.value.trim();
+      row.classList.toggle('invalid', !!v && !/^https?:\/\//i.test(v));
+      updateHint();
+    };
+    urlInput.addEventListener('input', refreshInvalid);
+    row.querySelector('.url-import-name').addEventListener('input', updateHint);
+    row.querySelector('.url-import-artist').addEventListener('input', updateHint);
+    row.querySelector('.url-import-del').onclick = () => {
+      const rows = listEl.querySelectorAll('.url-import-row');
+      if (rows.length <= 1) {
+        row.querySelectorAll('input').forEach(i => i.value = '');
+        row.classList.remove('invalid');
+        updateHint();
+        return;
+      }
+      row.remove();
+      updateHint();
+    };
+    // 在 URL 框里粘贴多行 URL → 自动拆行
+    urlInput.addEventListener('paste', (e) => {
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      if (!text) return;
+      const urls = text.split(/\s+/).map(s => s.trim()).filter(s => /^https?:\/\//i.test(s));
+      if (urls.length <= 1) return;
+      e.preventDefault();
+      fillUrlsToList(urls, row);
+    });
+    if (data.url) setTimeout(refreshInvalid, 0);
+    return row;
+  };
+
+  // 把 URL 数组填到现有空行，不够就创建新行
+  // currentRow 可选：先填当前行（用于 paste 事件）
+  const fillUrlsToList = (urls, currentRow) => {
+    let queue = urls.slice();
+    if (!queue.length) return;
+    if (currentRow) {
+      const curInput = currentRow.querySelector('.url-import-url');
+      if (!curInput.value.trim()) {
+        curInput.value = queue.shift();
+        curInput.dispatchEvent(new Event('input'));
+      }
+    }
+    const existingRows = Array.from(listEl.querySelectorAll('.url-import-row'));
+    for (const r of existingRows) {
+      if (!queue.length) break;
+      if (r === currentRow) continue;
+      const uInput = r.querySelector('.url-import-url');
+      if (!uInput.value.trim()) {
+        uInput.value = queue.shift();
+        uInput.dispatchEvent(new Event('input'));
+      }
+    }
+    while (queue.length) {
+      const newRow = createRow({ url: queue.shift() });
+      listEl.appendChild(newRow);
+    }
+    updateHint();
+  };
+
+  // 初始 3 行
+  for (let i = 0; i < 3; i++) listEl.appendChild(createRow());
+  updateHint();
+
+  $('#urlImportAddRow').onclick = () => {
+    listEl.appendChild(createRow());
+    listEl.lastElementChild.querySelector('.url-import-name').focus();
+    updateHint();
+  };
+
+  // 批量粘贴：在按钮行下方展开一个 textarea
+  $('#urlImportPasteMany').onclick = () => {
+    let pasteArea = $('#urlBulkPasteArea');
+    if (pasteArea) { pasteArea.remove(); return; }
+    pasteArea = document.createElement('div');
+    pasteArea.id = 'urlBulkPasteArea';
+    pasteArea.style.cssText = 'margin-top:10px;padding:10px;background:var(--bg-2);border-radius:12px;border:1px solid rgba(60,60,67,.06);';
+    pasteArea.innerHTML = `
+      <div style="font-size:12px;color:var(--ink-3);margin-bottom:6px;font-weight:600;letter-spacing:.3px;">粘贴多个链接，每行一个</div>
+      <textarea id="urlBulkPasteInput" placeholder="https://example.com/a.mp3&#10;https://example.com/b.mp3" style="width:100%;background:#fff;border:1px solid rgba(60,60,67,.10);border-radius:8px;padding:8px 10px;font:inherit;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;min-height:100px;max-height:200px;outline:none;color:var(--ink);resize:vertical;line-height:1.55;"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="edit-cancel" id="urlBulkCancel" type="button" style="flex:1;padding:8px 0;font-size:13px;font-weight:600;border:none;border-radius:10px;cursor:pointer;">取消</button>
+        <button class="edit-save" id="urlBulkConfirm" type="button" style="flex:1;padding:8px 0;font-size:13px;font-weight:600;border:none;border-radius:10px;cursor:pointer;background:linear-gradient(180deg,#2c2c30,#0e0e12);color:#fff;">填充到列表</button>
+      </div>
+    `;
+    const btnRow = $('#urlImportAddRow').closest('.btn-row');
+    btnRow.insertAdjacentElement('afterend', pasteArea);
+    setTimeout(() => { const i = $('#urlBulkPasteInput'); if (i) i.focus(); }, 100);
+    $('#urlBulkCancel').onclick = () => pasteArea.remove();
+    $('#urlBulkConfirm').onclick = () => {
+      const text = $('#urlBulkPasteInput').value || '';
+      const urls = text.split(/\s+/).map(s => s.trim()).filter(s => /^https?:\/\//i.test(s));
+      if (!urls.length) { toast('没有识别到有效链接'); return; }
+      fillUrlsToList(urls);
+      pasteArea.remove();
+    };
+  };
+
   const close = () => { modal.classList.remove('show'); modal.innerHTML = ''; };
   modal.onclick = (e) => { if (e.target.id === 'fontUrlModal') close(); };
-  $('#musicUrlCancel').onclick = close;
-  $('#musicUrlConfirm').onclick = async () => {
-    const text = $('#musicUrlInput').value;
-    const urls = text.split('\n').map(s => s.trim()).filter(s => /^https?:\/\//i.test(s));
-    if (!urls.length) { toast('请粘贴有效的链接'); return; }
+  $('#urlImportCancel').onclick = close;
+
+  $('#urlImportConfirm').onclick = async () => {
+    const entries = collectEntries();
+    if (!entries.length) { toast('至少填一个链接'); return; }
+    const invalid = listEl.querySelectorAll('.url-import-row.invalid').length;
+    if (invalid > 0) { toast(`有 ${invalid} 个链接格式不对，请检查`); return; }
     close();
-    await processUrlImports(urls);
+    await processUrlImports(entries);
   };
 }
-async function processUrlImports(urls) {
+  
+async function processUrlImports(entries) {
+  // 兼容：既接受 ['url1', 'url2'] 也接受 [{url, name, artist}]
+  const normalized = (Array.isArray(entries) ? entries : [])
+    .map(e => typeof e === 'string' ? { url: e, name: '', artist: '' } : e)
+    .filter(e => e && e.url);
+
+  if (!normalized.length) { toast('没有可导入的链接'); return; }
+
   const existing = new Set(state.music.tracks.filter(t => t.source === 'url' && t.url).map(t => t.url));
-  showLoadingToast(`正在导入 0 / ${urls.length}…`);
+  showLoadingToast(`正在导入 0 / ${normalized.length}…`);
   let added = 0, skipped = 0, dup = 0;
-  for (let i = 0; i < urls.length; i++) {
-    const url = urls[i];
+  for (let i = 0; i < normalized.length; i++) {
+    const entry = normalized[i];
+    const url = entry.url;
     if (existing.has(url)) { dup++; }
     else {
       const dur = await getAudioDurationFromUrl(url);
       if (!dur) { skipped++; }
       else {
-        const name = extractNameFromUrl(url);
+        // 歌名优先用用户填的，否则用原文件名
+        const name = (entry.name && entry.name.trim()) || extractNameFromUrl(url);
         state.music.tracks.push({
           id: uid('tr_'),
           name,
-          artist: '',
+          artist: (entry.artist && entry.artist.trim()) || '',
           album: '',
           duration: dur,
           cover: null,
@@ -6303,7 +6535,7 @@ async function processUrlImports(urls) {
         added++;
       }
     }
-    showLoadingToast(`正在导入 ${i + 1} / ${urls.length}…`);
+    showLoadingToast(`正在导入 ${i + 1} / ${normalized.length}…`);
     await new Promise(r => setTimeout(r, 20));
   }
   hideLoadingToast();
@@ -6316,6 +6548,7 @@ async function processUrlImports(urls) {
   if (musicSubView === 'library') renderMusicLibrary();
   else if (musicSubView === 'main') renderMusicMain();
 }
+  
 
 /* ---------- 歌单页 ---------- */
 function renderMusicPlaylistPage() {
