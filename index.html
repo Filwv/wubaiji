@@ -2260,6 +2260,79 @@ html,body{
   display:grid;place-items:center;color:#c4c4ca;
 }
 .music-empty .em-icon svg{width:32px;height:32px;stroke-width:1.2;}
+/* ---- 播客 ---- */
+.music-podcast-list{padding:6px 0 20px;}
+.music-podcast-list-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 20px;cursor:pointer;
+  transition:background .15s;
+}
+.music-podcast-list-item:active{background:rgba(60,60,67,.05);}
+.music-podcast-cover{
+  width:56px;height:56px;border-radius:12px;flex-shrink:0;
+  background:#f3f3f5 center/cover;
+  display:grid;place-items:center;color:#c4c4ca;overflow:hidden;
+}
+.music-podcast-cover svg{width:22px;height:22px;stroke-width:1.4;}
+.music-podcast-main{flex:1;min-width:0;}
+.music-podcast-title{
+  font-size:15px;font-weight:600;color:#1a1a1c;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px;
+}
+.music-podcast-sub{
+  font-size:12.5px;color:#8a8a90;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
+.music-podcast-intro{
+  padding:0 20px 16px;
+  font-size:13px;color:#8a8a90;line-height:1.65;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+}
+
+.music-podcast-epi-list{padding:0 8px 30px;}
+.music-podcast-epi{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 12px;cursor:pointer;border-radius:10px;
+  transition:background .15s;
+}
+.music-podcast-epi:active{background:rgba(60,60,67,.05);}
+.music-podcast-epi-cover{
+  width:48px;height:48px;border-radius:8px;flex-shrink:0;
+  background:#f3f3f5 center/cover;
+  display:grid;place-items:center;color:#c4c4ca;overflow:hidden;
+}
+.music-podcast-epi-cover svg{width:20px;height:20px;stroke-width:1.4;}
+.music-podcast-epi-main{flex:1;min-width:0;}
+.music-podcast-epi-title{
+  font-size:14px;font-weight:500;color:#1a1a1c;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px;
+  line-height:1.35;
+}
+.music-podcast-epi-sub{
+  font-size:11.5px;color:#8a8a90;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.music-podcast-epi-play{
+  width:36px;height:36px;border-radius:50%;
+  border:none;background:#1a1a1c;color:#fff;
+  display:grid;place-items:center;flex-shrink:0;
+  cursor:pointer;padding:0;
+  transition:transform .2s;
+}
+.music-podcast-epi-play:active{transform:scale(.88);}
+.music-podcast-epi-play svg{width:14px;height:14px;fill:currentColor;stroke:none;margin-left:2px;}
+.music-podcast-status{
+  font-size:11px;color:#c4c4ca;flex-shrink:0;font-weight:500;
+  max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;
+}
+.music-podcast-status.error{color:#d97a7a;}
+.music-podcast-status-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:0 20px 12px;
+  font-size:11.5px;color:#8a8a90;
+}
+.music-podcast-status-row .err{color:#d97a7a;font-weight:600;}
 .music-playlist-hero{
   display:flex;gap:16px;padding:8px 20px 22px;
 }
@@ -3758,7 +3831,9 @@ const state = {
     lockPassword: DEFAULT_LOCK_PASSWORD,
     lockPasswordEnabled: true,
     autoLikeComments: true,
-    layoutSeededV2: false
+    layoutSeededV2: false,
+    podcastAutoRefresh: true,
+    playbackRate: 1 // 👈 新增：全局倍速
   },
   user: { name: '我', avatar: null, wxid: null, wallet: 0, momentsCover: null },
   moments: [],
@@ -3785,8 +3860,10 @@ const state = {
     userCover: null,
     playHistory: [],
     lastPlayedId: null,
-    lastMode: 'loop-all'
-  }
+    lastMode: 'loop-all',
+    progress: {} // 👈 新增：播放进度
+  },
+  podcasts: []
 };
 
 let chatSubView = 'list';
@@ -3813,6 +3890,7 @@ let settingsSubView = 'main';
 
 let musicSubView = 'main';
 let musicActivePlaylistId = null;
+let musicActivePodcastId = null;
 let musicPlayerFrom = 'main';
 let _playerLyricsView = false;
 let _playerUIRefreshUnsub = null;
@@ -3835,6 +3913,14 @@ const calState = {
 /* ============================================================
    2. 全局播放器
    ============================================================ */
+const sleepTimerState = {
+  deadline: 0,
+  active: false,
+  tickTimer: null,
+  fading: false,
+  originalVolume: 1
+};
+
 const player = {
   audio: null,
   trackId: null,
@@ -3855,6 +3941,7 @@ const player = {
     if (this.audio) return;
     const a = new Audio();
     a.preload = 'metadata';
+    a.playbackRate = state.settings.playbackRate || 1;
     this.audio = a;
     a.addEventListener('timeupdate', () => {
       this.currentTime = a.currentTime;
@@ -3863,16 +3950,25 @@ const player = {
         this._lastNotify = now;
         this.notify();
       }
+      this._maybeSaveProgress(); // 👈 每5秒保存进度
     });
     const syncDuration = () => {
       if (isFinite(a.duration) && a.duration > 0) {
         this.duration = a.duration;
+        // 👈 恢复进度逻辑
+        if (this._pendingResume > 0) {
+          let sec = this._pendingResume;
+          if (sec >= a.duration - 2) sec = 0;
+          try { a.currentTime = sec; } catch (_) {}
+          this.currentTime = sec;
+          this._pendingResume = 0;
+        }
+        this._loaded = true; 
+        
         const track = this.getTrack();
-        // 如果发现数据库里保存的时长和实际时长差异大于 1 秒，自动修正并保存
         if (track && Math.abs((track.duration || 0) - a.duration) > 1) {
           track.duration = a.duration;
           save();
-          // 实时更新当前页面上对应歌曲的时长文字
           const items = document.querySelectorAll(`[data-track-id="${track.id}"]`);
           items.forEach(item => {
             const durEl = item.querySelector('.music-track-dur') || item.querySelector('.music-recent-dur');
@@ -3889,6 +3985,9 @@ const player = {
     a.addEventListener('ended', () => { this.handleEnded(); });
 
     a.addEventListener('error', async () => {
+      // 👈 新增：如果是主动退出播放，直接忽略报错
+      if (this._isStopping) return;
+
       this.playing = false;
       this.notify();
       const t = this.getTrack();
@@ -3916,6 +4015,7 @@ const player = {
 
     this.setupMediaSession();
   },
+    
 
   subscribe(fn) {
     this.listeners.add(fn);
@@ -3940,6 +4040,7 @@ const player = {
     if (!track) return null;
     if (track.source === 'url' && track.url) return track.url;
     if (track.source === 'online' && track.url) return track.url;
+    if (track.source === 'podcast' && track.url) return track.url;
     if (track.source === 'local' && track.blobKey) {
       if (this._objectUrls[track.id]) return this._objectUrls[track.id];
       const blob = await idbGetMusic(track.blobKey);
@@ -3955,12 +4056,21 @@ const player = {
     this.init();
     const track = this.getTrackById(trackId);
     if (!track) { toast('曲目不存在'); return; }
+    
+    if (this.trackId && this.currentTime > 3) {
+      this.saveProgress(this.trackId, this.currentTime); // 👈 切歌前保存旧进度
+    }
+
     this.trackId = trackId;
     this.currentTime = 0;
     this.duration = track.duration || 0;
+    this._pendingResume = (state.music.progress && state.music.progress[trackId]) ? state.music.progress[trackId] : 0;
+    this._loaded = false;
+
     const url = await this.getPlayableUrl(track);
     if (!url) { toast('无法加载音频'); return; }
     try { this.audio.src = url; } catch (_) {}
+    this.audio.playbackRate = state.settings.playbackRate || 1; // 👈 每次加载重置倍速
     this.updateMediaSession(track);
     this.addToHistory(trackId);
     this.notify();
@@ -4000,6 +4110,7 @@ const player = {
     const v = Math.max(0, Math.min(d, sec));
     try { this.audio.currentTime = v; } catch (_) {}
     this.currentTime = v;
+    this.saveProgress(this.trackId, v); // 👈 拖拽进度条后立刻保存
     this.notify();
   },
 
@@ -4040,6 +4151,10 @@ const player = {
   },
 
   handleEnded() {
+    if (this.trackId) {
+      delete state.music.progress[this.trackId]; // 👈 播完清空该曲进度
+      save();
+    }
     if (this.mode === 'loop-one') {
       try { this.audio.currentTime = 0; this.audio.play().catch(() => {}); } catch (_) {}
     } else {
@@ -4048,6 +4163,10 @@ const player = {
   },
 
   stop() {
+    this._isStopping = true; // 👈 标记正在退出，配合拦截报错
+    if (this.trackId && this.currentTime > 3) {
+      this.saveProgress(this.trackId, this.currentTime);
+    }
     if (this.audio) {
       try { this.audio.pause(); this.audio.src = ''; } catch (_) {}
     }
@@ -4055,7 +4174,16 @@ const player = {
     this.playing = false;
     this.currentTime = 0;
     this.duration = 0;
+    cancelSleepTimer(); // 👈 停止时关闭定时
     this.notify();
+    
+    // 👈 新增：主动通知全局悬浮条立即隐藏
+    if (typeof renderGlobalPlayer === 'function') {
+      renderGlobalPlayer();
+    }
+    
+    // 延迟 150 毫秒重置标记，避免影响下一次正常播放
+    setTimeout(() => { this._isStopping = false; }, 150);
   },
 
   revokeObjectUrl(trackId) {
@@ -4092,6 +4220,29 @@ const player = {
     if (!Array.isArray(state.music.playHistory)) state.music.playHistory = [];
     state.music.playHistory = [trackId, ...state.music.playHistory.filter(id => id !== trackId)].slice(0, 50);
     state.music.lastPlayedId = trackId;
+  },
+  saveProgress(trackId, sec) {
+    if (!trackId || sec <= 0) return;
+    if (!state.music.progress) state.music.progress = {};
+    state.music.progress[trackId] = Math.floor(sec);
+    save();
+  },
+  _maybeSaveProgress() {
+    if (!this._loaded) return;
+    const now = Date.now();
+    if (!this._lastProgSave || now - this._lastProgSave > 5000) {
+      this._lastProgSave = now;
+      if (this.trackId && this.currentTime > 3) {
+        this.saveProgress(this.trackId, this.currentTime);
+      }
+    }
+  },
+  setRate(rate) {
+    if (!this.audio) return;
+    this.audio.playbackRate = rate;
+    state.settings.playbackRate = rate;
+    save();
+    this.notify();
   }
 };
 player.mode = state.music.lastMode || 'loop-all';
@@ -4108,6 +4259,14 @@ async function fetchOnlinePlayUrlById(onlineId, source = 'netease') {
     return '';
   }
 }
+/* 👈 新增：分离音乐和播客的收藏列表 */
+function getMusicFavorites() {
+  return state.music.favorites.filter(id => {
+    const t = player.getTrackById(id);
+    return t && t.source !== 'podcast';
+  });
+}
+
 window.addEventListener('beforeunload', () => {
   Object.keys(player._objectUrls).forEach(k => {
     try { URL.revokeObjectURL(player._objectUrls[k]); } catch (_) {}
@@ -4393,6 +4552,7 @@ function openApp(id) {
   else if (id === 'music') {
     musicSubView = 'main';
     musicActivePlaylistId = null;
+    musicActivePodcastId = null;
     _playerLyricsView = false;
     renderMusicApp();
   }
@@ -4409,7 +4569,7 @@ function goHome() {
   tideSubView = 'main'; tideSelectedDate = null;
   beautySubView = 'main';
   apiEditingId = null; wbEditingId = null; settingsSubView = 'main';
-  musicSubView = 'main'; musicActivePlaylistId = null; _onlineSearchResults = []; _onlineSearchKeyword = '';
+  musicSubView = 'main'; musicActivePlaylistId = null; musicActivePodcastId = null; _onlineSearchResults = []; _onlineSearchKeyword = '';
   if (_playerUIRefreshUnsub) { _playerUIRefreshUnsub(); _playerUIRefreshUnsub = null; }
   stopLyricsController();
   appView.classList.remove('active');
@@ -5446,6 +5606,15 @@ function renderMusicApp() {
   if (musicSubView === 'library') return renderMusicLibrary();
   if (musicSubView === 'playlist') return renderMusicPlaylistPage();
   if (musicSubView === 'player') return renderMusicPlayerPage();
+  if (musicSubView === 'podcast-fav') return renderPodcastFavoritesPage(); // 👈 新增：收藏播客页路由
+  if (musicSubView === 'podcast') {
+    if (musicActivePodcastId) {
+      const p = state.podcasts.find(x => x.id === musicActivePodcastId);
+      if (p) return renderPodcastDetail(p);
+      musicActivePodcastId = null;
+    }
+    return renderPodcastList();
+  }
   return renderMusicMain();
 }
 
@@ -5461,7 +5630,7 @@ function musicTotalDuration(trackIds) {
 function renderMusicMain() {
   if (window._musicMiniBarUnsub) { window._musicMiniBarUnsub(); window._musicMiniBarUnsub = null; }
 
-  const tracks = state.music.tracks;
+  const tracks = state.music.tracks.filter(t => t.source !== 'podcast');
   const playlists = state.music.playlists;
   const userAvatar = state.music.userAvatar || state.user.avatar;
   const userAvInner = userAvatar
@@ -5470,9 +5639,10 @@ function renderMusicMain() {
   const nickname = state.music.userNickname || state.user.name || '我';
   const heroStyle = state.music.userCover ? `background-image:url('${state.music.userCover}');` : '';
 
+  const musicFavs = getMusicFavorites(); // 👈 获取纯音乐收藏
   const favCover = (() => {
-    if (state.music.favorites.length) {
-      const first = player.getTrackById(state.music.favorites[0]);
+    if (musicFavs.length) {
+      const first = player.getTrackById(musicFavs[0]);
       if (first && first.cover) return first.cover;
     }
     return null;
@@ -5480,14 +5650,32 @@ function renderMusicMain() {
   const favCoverStyle = favCover ? `background-image:url('${favCover}');` : '';
   const favCoverInner = favCover ? '' : ICONS.heartFilled;
 
+  const podcastFavTracks = state.music.tracks.filter(t => 
+    t.source === 'podcast' && state.music.favorites.includes(t.id)
+  );
+  const podcastFavCover = (() => {
+    if (podcastFavTracks.length && podcastFavTracks[0].cover) return podcastFavTracks[0].cover;
+    return null;
+  })();
+  const podcastFavCoverStyle = podcastFavCover ? `background-image:url('${podcastFavCover}');` : '';
+  const podcastFavCoverInner = podcastFavCover ? '' : ICONS.musicNote;
+
   let playlistItemsHTML = `
     <div class="music-main-playlist" data-playlist-id="__favorites__">
       <div class="music-main-playlist-cover" style="${favCoverStyle}">${favCoverInner}</div>
       <div class="music-main-playlist-main">
         <div class="music-main-playlist-name">我喜欢的音乐</div>
-        <div class="music-main-playlist-sub">${state.music.favorites.length} 首</div>
+        <div class="music-main-playlist-sub">${musicFavs.length} 首</div>
       </div>
       <button class="music-main-playlist-action" data-play-playlist="__favorites__" type="button">${ICONS.play}</button>
+    </div>
+    <div class="music-main-playlist" data-playlist-id="__podcast_fav__">
+      <div class="music-main-playlist-cover" style="${podcastFavCoverStyle}">${podcastFavCoverInner}</div>
+      <div class="music-main-playlist-main">
+        <div class="music-main-playlist-name">我收藏的播客</div>
+        <div class="music-main-playlist-sub">${podcastFavTracks.length} 集</div>
+      </div>
+      <button class="music-main-playlist-action" data-play-playlist="__podcast_fav__" type="button">${ICONS.play}</button>
     </div>`;
 
   playlistItemsHTML += playlists.map(pl => {
@@ -5539,7 +5727,7 @@ function renderMusicMain() {
               <div class="music-main-stat-label">歌单</div>
             </div>
             <div class="music-main-stat">
-              <div class="music-main-stat-num">${state.music.favorites.length}</div>
+              <div class="music-main-stat-num">${musicFavs.length}</div>
               <div class="music-main-stat-label">收藏</div>
             </div>
             <div class="music-main-stat">
@@ -5606,8 +5794,14 @@ function renderMusicMain() {
       const tab = e.target.closest('.music-main-tab');
       if (!tab) return;
       const key = tab.dataset.musicTab;
+      if (key === 'podcast') {
+        musicSubView = 'podcast';
+        musicActivePodcastId = null;
+        renderMusicApp();
+        return;
+      }
       tabsEl.querySelectorAll('.music-main-tab').forEach(t => t.classList.toggle('active', t === tab));
-      if (key !== 'music') toast('这个板块还在路上，先听点歌吧');
+      if (key === 'note') toast('这个板块还在路上，先听点歌吧');
     };
   }
 
@@ -5622,6 +5816,9 @@ function renderMusicMain() {
           const ids = state.music.favorites.slice();
           if (!ids.length) { toast('还没有喜欢的歌'); return; }
           playTrackList(ids, 0, 'main');
+        } else if (pid === '__podcast_fav__') {
+          if (!podcastFavTracks.length) { toast('还没有收藏的播客'); return; }
+          playTrackList(podcastFavTracks.map(t => t.id), 0, 'main');
         } else {
           const pl = state.music.playlists.find(p => p.id === pid);
           if (!pl || !pl.trackIds.length) { toast('歌单里还没有歌'); return; }
@@ -5634,6 +5831,11 @@ function renderMusicMain() {
       if (item.id === 'musicMainNewPlaylist') { createNewPlaylistFromMain(); return; }
       const pid = item.dataset.playlistId;
       if (!pid) return;
+      if (pid === '__podcast_fav__') {
+        musicSubView = 'podcast-fav';
+        renderMusicApp();
+        return;
+      }
       musicActivePlaylistId = pid;
       musicSubView = 'playlist';
       renderMusicApp();
@@ -5941,7 +6143,7 @@ async function fetchOnlineLyric(track) {
 
 
 function renderMusicLibrary() {
-  const tracks = state.music.tracks;
+  const tracks = state.music.tracks.filter(t => t.source !== 'podcast');
   const listHTML = tracks.length
     ? tracks.map(t => musicTrackItemHTML(t, 'library')).join('')
     : `<div class="music-empty"><div class="em-icon">${ICONS.musicNote}</div><div>还没有本地音乐<br><span style="font-size:12px;">去音乐主页右上角 ⋯ → 更多<br>导入歌曲文件或在线链接</span></div></div>`;
@@ -6557,13 +6759,14 @@ function renderMusicPlaylistPage() {
   let title, cover, trackIds;
   if (isFav) {
     title = '我喜欢的音乐';
-    trackIds = state.music.favorites.slice();
+    trackIds = getMusicFavorites(); // 👈 过滤掉播客
     cover = null;
     if (trackIds.length) {
       const first = player.getTrackById(trackIds[0]);
       if (first) cover = first.cover;
     }
-  } else {
+  }
+else {
     const pl = state.music.playlists.find(p => p.id === musicActivePlaylistId);
     if (!pl) { musicSubView = 'main'; return renderMusicMain(); }
     title = pl.name;
@@ -6705,6 +6908,8 @@ function openTrackMoreMenu(trackId, source) {
         <div class="list-item" id="tmFetchCover"><div class="li-main"><div class="li-title">在线匹配封面</div><div class="li-sub">根据歌名与歌手自动搜索专辑图</div></div><span class="li-chev">›</span></div>
         <div class="list-item" id="tmBg"><div class="li-main"><div class="li-title">${hasBgImage ? '替换播放背景' : '设置播放背景'}</div></div><span class="li-chev">›</span></div>
         ${hasBgImage ? `<div class="list-item" id="tmResetBg"><div class="li-main"><div class="li-title" style="color:var(--danger);">恢复默认背景</div></div><span class="li-chev">›</span></div>` : ''}
+        <div class="list-item" id="tmRate"><div class="li-main"><div class="li-title">倍速播放</div><div class="li-sub">当前：${(state.settings.playbackRate || 1).toFixed(1)}x</div></div><span class="li-chev">›</span></div>
+        <div class="list-item" id="tmSleep"><div class="li-main"><div class="li-title">睡眠定时</div><div class="li-sub">${sleepTimerState.active ? '剩余 ' + Math.ceil((sleepTimerState.deadline - Date.now()) / 60000) + ' 分钟' : '未开启'}</div></div><span class="li-chev">›</span></div>
         <!-- 👇新增：文字颜色菜单项 -->
         <div class="list-item" id="tmTextMode">
           <div class="li-main"><div class="li-title">文字颜色</div><div class="li-sub">${textModeLabel}</div></div>
@@ -6715,6 +6920,7 @@ function openTrackMoreMenu(trackId, source) {
         <div class="list-item" id="tmAddPl"><div class="li-main"><div class="li-title">加入歌单</div></div><span class="li-chev">›</span></div>
         ${isInPlaylist && pl ? `<div class="list-item" id="tmRemoveFromPl"><div class="li-main"><div class="li-title" style="color:var(--danger);">从「${esc(pl.name)}」移除</div></div><span class="li-chev">›</span></div>` : ''}
         ${source === 'favorites' ? `<div class="list-item" id="tmRemoveFav"><div class="li-main"><div class="li-title" style="color:var(--danger);">从我喜欢移除</div></div><span class="li-chev">›</span></div>` : ''}
+        <div class="list-item" id="tmQuit"><div class="li-main"><div class="li-title" style="color:var(--danger);">退出播放</div></div><span class="li-chev">›</span></div>
         <div class="list-item" id="tmDelete"><div class="li-main"><div class="li-title" style="color:var(--danger);">删除曲目</div></div><span class="li-chev">›</span></div>
       </div>
       <div class="edit-actions"><button class="edit-cancel" id="tmCancel" type="button">取消</button></div>
@@ -6740,6 +6946,9 @@ function openTrackMoreMenu(trackId, source) {
       renderMusicPlayerPage();
     }
   };
+
+  $('#tmRate').onclick = () => { close(); setTimeout(() => openPlaybackRatePicker(), 150); };
+  $('#tmSleep').onclick = () => { close(); setTimeout(() => openSleepTimerPicker(), 150); };
 
   // 文字颜色
   const textModeBtn = $('#tmTextMode');
@@ -6770,6 +6979,13 @@ function openTrackMoreMenu(trackId, source) {
     state.music.favorites = state.music.favorites.filter(x => x !== trackId);
     save(); renderMusicPlaylistPage();
     toast('已移除');
+  };
+  $('#tmQuit').onclick = () => {
+    close();
+    player.stop();
+    musicSubView = 'main';
+    renderMusicApp();
+    toast('已退出播放');
   };
   $('#tmDelete').onclick = async () => {
     close();
@@ -7030,7 +7246,11 @@ function toggleTrackFavorite(trackId) {
       favBtn.classList.toggle('active', isFav);
       favBtn.innerHTML = isFav ? ICONS.heartFilled : ICONS.heart;
     }
-  } else if (musicSubView === 'playlist' && musicActivePlaylistId === '__favorites__') renderMusicPlaylistPage();
+  } else if (musicSubView === 'playlist' && musicActivePlaylistId === '__favorites__') {
+    renderMusicPlaylistPage();
+  } else if (musicSubView === 'podcast' || musicSubView === 'podcast-fav') {
+    renderMusicApp(); // 👈 新增：播客页实时刷新
+  }
 }
 async function addTrackToPlaylistModal(trackId) {
   if (!state.music.playlists.length) {
@@ -7117,6 +7337,858 @@ async function deleteTrackConfirm(trackId) {
   toast('已删除');
 }
 
+/* ============================================================
+   播客模块（订阅 + 单集 + 播放）
+   ============================================================ */
+function fmtPodcastDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const now = new Date();
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${d.getMonth() + 1}月${d.getDate()}日`;
+  }
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function renderPodcastList() {
+  const list = state.podcasts.slice().sort((a, b) => (b.lastFetchedAt || 0) - (a.lastFetchedAt || 0));
+  const listHTML = list.length
+    ? list.map(p => {
+        const coverStyle = p.coverUrl ? `background-image:url('${p.coverUrl}');` : '';
+        const coverInner = p.coverUrl ? '' : ICONS.musicNote;
+        const isManual = p.rssUrl && p.rssUrl.startsWith('manual://');
+        const statusText = isManual
+          ? '手动导入'
+          : p.lastError
+            ? '更新失败'
+            : (p.lastFetchedAt ? momentTimeAgo(p.lastFetchedAt) : '从未更新');
+        const statusCls = (!isManual && p.lastError) ? 'music-podcast-status error' : 'music-podcast-status';
+        return `<div class="music-podcast-list-item" data-pid="${esc(p.id)}">
+          <div class="music-podcast-cover" style="${coverStyle}">${coverInner}</div>
+          <div class="music-podcast-main">
+            <div class="music-podcast-title">${esc(p.title)}</div>
+            <div class="music-podcast-sub">${esc(p.author || '未知作者')} · ${p.episodes.length} 集</div>
+          </div>
+          <div class="${statusCls}">${esc(statusText)}</div>
+          <span class="li-chev">›</span>
+        </div>`;
+      }).join('')
+    : `<div class="music-empty" style="padding:70px 30px;">
+        <div class="em-icon">${ICONS.music}</div>
+        <div>还没有订阅任何播客<br><span style="font-size:12px;">点右上角 ＋ 粘贴 RSS 链接开始</span></div>
+      </div>`;
+  appView.innerHTML = `
+    <div class="music-app">
+      <div class="music-header">
+        <button class="back-btn" id="podcastListBack">‹ 音乐</button>
+        <h1>播客</h1>
+        <div style="margin-left:auto; display:flex; align-items:center; z-index:2;">
+          <button class="music-header-btn" id="podcastRefreshAll" style="margin-left:0; margin-right:4px;">刷新</button>
+          <button class="music-header-btn plus" id="podcastAddBtn" style="margin-left:0;">＋</button>
+        </div>
+      </div>
+      <div class="music-body">
+        <div class="music-podcast-list">${listHTML}</div>
+      </div>
+    </div>
+  `;
+  $('#podcastListBack').onclick = () => { musicSubView = 'main'; musicActivePodcastId = null; renderMusicApp(); };
+  $('#podcastAddBtn').onclick = () => addPodcastModal();
+  const refreshAllBtn = $('#podcastRefreshAll');
+  if (refreshAllBtn) refreshAllBtn.onclick = async () => {
+    if (!state.podcasts.length) { toast('还没有订阅播客'); return; }
+    const autoCount = state.podcasts.filter(p => p.rssUrl && !p.rssUrl.startsWith('manual://')).length;
+    if (!autoCount) { toast('只有手动导入的播客，无法自动刷新'); return; }
+    toast(`正在刷新 ${autoCount} 个播客…`);
+    await refreshAllStalePodcasts({ force: true });
+    if (currentApp === 'music' && musicSubView === 'podcast' && !musicActivePodcastId) renderMusicApp();
+    toast('刷新完成');
+  };
+  const listEl = appView.querySelector('.music-podcast-list');
+  if (listEl) {
+    listEl.onclick = (e) => {
+      const item = e.target.closest('[data-pid]');
+      if (!item) return;
+      musicActivePodcastId = item.dataset.pid;
+      renderMusicApp();
+    };
+  }
+}
+
+function renderPodcastFavoritesPage() {
+  const tracks = state.music.tracks.filter(t => t.source === 'podcast' && state.music.favorites.includes(t.id));
+  const listHTML = tracks.length
+    ? tracks.map(t => musicTrackItemHTML(t, 'podcast-fav')).join('')
+    : `<div class="music-empty">
+        <div class="em-icon">${ICONS.heart}</div>
+        <div>还没有收藏的播客<br><span style="font-size:12px;">在播客详情页点击心形图标即可收藏</span></div>
+       </div>`;
+
+  appView.innerHTML = `
+    <div class="music-app">
+      <div class="music-header">
+        <button class="back-btn" id="podcastFavBack">‹ 音乐</button>
+        <h1>我收藏的播客</h1>
+      </div>
+      <div class="music-body">
+        <div class="music-track-list" id="musicTrackList">${listHTML}</div>
+      </div>
+    </div>
+  `;
+  $('#podcastFavBack').onclick = () => { musicSubView = 'main'; renderMusicApp(); };
+  bindMusicTrackList(tracks.map(t => t.id), 'podcast-fav');
+}
+
+
+function renderPodcastDetail(podcast) {
+  const coverStyle = podcast.coverUrl ? `background-image:url('${podcast.coverUrl}');` : '';
+  const coverInner = podcast.coverUrl ? '' : ICONS.musicNote;
+  const eps = (podcast.episodes || []).slice();
+  const episodesHTML = eps.length
+    ? eps.map((ep, i) => {
+        const epCover = ep.coverUrl || podcast.coverUrl;
+        const epCoverStyle = epCover ? `background-image:url('${epCover}');` : '';
+        const epCoverInner = epCover ? '' : ICONS.musicNote;
+        
+        const t = state.music.tracks.find(tr => tr.source === 'podcast' && tr.onlineId === ep.guid);
+        let progHtml = '';
+        if (t) {
+          const saved = (state.music.progress && state.music.progress[t.id]) ? state.music.progress[t.id] : 0;
+          if (saved > 3) progHtml = ` · 已听 ${fmtSec(saved)}`;
+        }
+        const isFav = t && state.music.favorites.includes(t.id);
+        const favBtnHTML = `<button class="music-podcast-epi-fav" data-fav-eidx="${i}" type="button" style="background:none;border:none;padding:8px;flex-shrink:0;cursor:pointer;display:grid;place-items:center;color:${isFav?'#d98a9c':'#c4c4ca'};">
+          <span style="width:20px;height:20px;display:block;">${isFav ? ICONS.heartFilled : ICONS.heart}</span>
+        </button>`;
+
+        const dur = ep.duration ? fmtSec(ep.duration) : '';
+        const date = fmtPodcastDate(ep.pubDate);
+        const metaParts = [date, dur].filter(Boolean);
+        return `<div class="music-podcast-epi" data-eidx="${i}">
+          <div class="music-podcast-epi-cover" style="${epCoverStyle}">${epCoverInner}</div>
+          <div class="music-podcast-epi-main">
+            <div class="music-podcast-epi-title">${esc(ep.title)}</div>
+            <div class="music-podcast-epi-sub">${esc(metaParts.join(' · '))}${progHtml}</div>
+          </div>
+          ${favBtnHTML}
+          <button class="music-podcast-epi-play" data-play-eidx="${i}" type="button">${ICONS.play}</button>
+        </div>`;
+      }).join('')
+    : `<div class="music-empty" style="padding:50px 30px;">
+        <div>这个播客还没有单集<br><span style="font-size:12px;">RSS 里没有可播放的音频条目</span></div>
+      </div>`;
+  appView.innerHTML = `
+    <div class="music-app">
+      <div class="music-header">
+        <button class="back-btn" id="podcastDetailBack">‹ 播客</button>
+        <h1>播客详情</h1>
+        <button class="music-header-btn" id="podcastDetailMore">⋯</button>
+      </div>
+      <div class="music-body">
+        <div class="music-playlist-hero">
+          <div class="music-playlist-hero-cover" style="${coverStyle}">${coverInner}</div>
+          <div class="music-playlist-hero-info">
+            <div class="music-playlist-hero-name">${esc(podcast.title)}</div>
+            <div class="music-playlist-hero-sub">${esc(podcast.author || '未知作者')} · ${eps.length} 集</div>
+            ${eps.length ? `<button class="music-play-all" id="podcastPlayAll">${ICONS.play}<span>播放全部</span></button>` : ''}
+          </div>
+        </div>
+        <div class="music-podcast-status-row">
+          <span>${podcast.lastFetchedAt ? '最后更新：' + esc(momentTimeAgo(podcast.lastFetchedAt)) : '尚未更新'}</span>
+          ${podcast.lastError ? `<span class="err">上次刷新失败</span>` : ''}
+        </div>
+        ${podcast.description ? `<div class="music-podcast-intro">${esc(podcast.description)}</div>` : ''}
+        <div class="music-podcast-epi-list">${episodesHTML}</div>
+      </div>
+    </div>
+  `;
+  $('#podcastDetailBack').onclick = () => { musicActivePodcastId = null; renderMusicApp(); };
+  $('#podcastDetailMore').onclick = () => openPodcastMenu(podcast);
+  const playAllBtn = $('#podcastPlayAll');
+  if (playAllBtn) playAllBtn.onclick = () => {
+    if (!eps.length) return;
+    playPodcastEpisode(podcast, eps[0], true);
+  };
+  const listEl = appView.querySelector('.music-podcast-epi-list');
+  if (listEl) {
+    listEl.onclick = (e) => {
+      const favBtn = e.target.closest('[data-fav-eidx]');
+      if (favBtn) {
+        e.stopPropagation();
+        const idx = parseInt(favBtn.dataset.favEidx, 10);
+        const ep = eps[idx];
+        if (ep) {
+           let tr = state.music.tracks.find(x => x.source === 'podcast' && x.onlineId === ep.guid);
+           if (!tr) {
+             const trackId = ensurePodcastTrackSaved(podcast, ep);
+             if (trackId) tr = player.getTrackById(trackId);
+           }
+           if (tr) toggleTrackFavorite(tr.id);
+        }
+        return;
+      }
+      const row = e.target.closest('[data-eidx]');
+      if (!row) return;
+      const idx = parseInt(row.dataset.eidx, 10);
+      const ep = eps[idx];
+      if (!ep) return;
+      if (e.target.closest('[data-play-eidx]')) e.stopPropagation();
+      playPodcastEpisode(podcast, ep, false);
+    };
+  }
+}
+
+async function playPodcastEpisode(podcast, episode, playAll = false) {
+  if (!podcast || !episode || !episode.audioUrl) { toast('这一集暂时无法播放'); return; }
+  showLoadingToast('准备播放…');
+  try {
+    const trackId = ensurePodcastTrackSaved(podcast, episode);
+    if (!trackId) { hideLoadingToast(); toast('无法创建播放条目'); return; }
+    hideLoadingToast();
+    player.init();
+    player.unlocked = true;
+    if (playAll) {
+      const queue = [];
+      (podcast.episodes || []).forEach(ep => {
+        const id = ensurePodcastTrackSaved(podcast, ep);
+        if (id) queue.push(id);
+      });
+      const startIdx = Math.max(0, queue.indexOf(trackId));
+      player.setQueue(queue, startIdx);
+    } else {
+      player.setQueue([trackId], 0);
+    }
+    await player.load(trackId, true);
+    openPlayerPage('podcast');
+  } catch (e) {
+    hideLoadingToast();
+    toast('播放失败：' + friendlyError(e));
+  }
+}
+
+function ensurePodcastTrackSaved(podcast, episode) {
+  if (!podcast || !episode || !episode.audioUrl) return null;
+  const existing = state.music.tracks.find(t =>
+    t.source === 'podcast' && t.onlineId === episode.guid
+  );
+  if (existing) {
+    let changed = false;
+    if (!existing.cover && (episode.coverUrl || podcast.coverUrl)) {
+      existing.cover = episode.coverUrl || podcast.coverUrl;
+      changed = true;
+    }
+    if (!existing.duration && episode.duration) {
+      existing.duration = episode.duration;
+      changed = true;
+    }
+    if (changed) save();
+    return existing.id;
+  }
+  const trackId = uid('tr_');
+  state.music.tracks.push({
+    id: trackId,
+    name: episode.title || '未命名单集',
+    artist: podcast.title || '',
+    album: '',
+    duration: episode.duration || 0,
+    cover: episode.coverUrl || podcast.coverUrl || null,
+    bgImage: null,
+    textMode: 'auto',
+    source: 'podcast',
+    blobKey: null,
+    url: episode.audioUrl,
+    onlineSource: null,
+    onlineId: episode.guid || '',
+    podcastId: podcast.id,
+    lyrics: '',
+    lyricsLines: null,
+    lyricsHasTime: false,
+    addedAt: Date.now()
+  });
+  save();
+  return trackId;
+}
+
+function addPodcastModal() {
+  const modal = $('#widgetConfigModal');
+  modal.innerHTML = `
+    <div class="widget-panel">
+      <h3 class="edit-title">添加播客</h3>
+      <div class="list">
+        <div class="list-item" id="pcAddByUrl">
+          <div class="li-main"><div class="li-title">输入 RSS 链接</div><div class="li-sub">尝试自动联网拉取（最多等 8 秒）</div></div>
+          <span class="li-chev">›</span>
+        </div>
+        <div class="list-item" id="pcAddByXml">
+          <div class="li-main"><div class="li-title">直接粘贴 XML</div><div class="li-sub">网络差或代理失效时，直接用源码订阅</div></div>
+          <span class="li-chev">›</span>
+        </div>
+      </div>
+      <div class="edit-actions"><button class="edit-cancel" id="pcAddCancel" type="button">取消</button></div>
+    </div>`;
+  modal.classList.add('show');
+  const close = () => { modal.classList.remove('show'); modal.innerHTML = ''; };
+  modal.onclick = (e) => { if (e.target.id === 'widgetConfigModal') close(); };
+  $('#pcAddCancel').onclick = close;
+  
+  $('#pcAddByUrl').onclick = async () => {
+    close();
+    const url = await showInputModal({
+      title: '添加播客（联网拉取）',
+      defaultValue: '',
+      placeholder: 'https://example.com/feed.xml',
+      confirmText: '订阅'
+    });
+    if (!url || !url.trim()) return;
+    const trimmed = url.trim();
+    if (!/^https?:\/\//i.test(trimmed)) { toast('请输入以 http(s):// 开头的 RSS 地址'); return; }
+    if (state.podcasts.some(p => p.rssUrl === trimmed)) { toast('已经订阅过这个播客了'); return; }
+
+    showLoadingToast('正在拉取 RSS（5 通道并行，约 8 秒）…');
+    let xmlText = null;
+    let fetchError = null;
+    try {
+      xmlText = await fetchRSSWithProxy(trimmed);
+    } catch (e) {
+      fetchError = e;
+    }
+    hideLoadingToast();
+
+    if (!xmlText) {
+      openManualXmlFallback(trimmed, fetchError);
+      return;
+    }
+
+    const parsed = parsePodcastRSS(xmlText, trimmed);
+    if (!parsed) {
+      openManualXmlFallback(trimmed, new Error('解析失败，可能不是标准播客 RSS'));
+      return;
+    }
+    state.podcasts.push({
+      id: uid('pc_'),
+      title: parsed.title,
+      author: parsed.author,
+      description: parsed.description,
+      coverUrl: parsed.coverUrl,
+      rssUrl: trimmed,
+      lastFetchedAt: Date.now(),
+      lastError: null,
+      episodes: parsed.episodes
+    });
+    save();
+    toast(`订阅成功 · ${parsed.episodes.length} 集`);
+    renderMusicApp();
+  };
+  
+  $('#pcAddByXml').onclick = () => {
+    close();
+    openManualXmlModal(null);
+  };
+}
+
+/* 拉取失败兜底面板：显示失败原因 + 提供手动粘贴 XML 入口 */
+function openManualXmlFallback(url, error) {
+  const modal = $('#fontUrlModal');
+  const errMsg = (error && error.message) || '未知错误';
+  modal.innerHTML = `
+    <div class="widget-panel">
+      <h3 class="edit-title">订阅失败</h3>
+      <p class="hint" style="padding:0 4px 10px;line-height:1.7;color:var(--danger);word-break:break-all;">
+        ${esc(errMsg)}
+      </p>
+      <p class="hint" style="padding:0 4px 14px;line-height:1.7;">
+        所有代理通道都失败了。可能是：RSS 服务器屏蔽了代理、链接不正确，或网络暂时不通。<br>
+        你可以手动粘贴 RSS 的 XML 全文完成订阅（之后无法自动刷新，但单集可正常播放）。
+      </p>
+      <div class="edit-actions">
+        <button class="edit-cancel" id="xmlFallbackCancel" type="button">取消</button>
+        <button class="edit-save" id="xmlFallbackOpen" type="button">粘贴 XML</button>
+      </div>
+    </div>`;
+  modal.classList.add('show');
+  const close = () => { modal.classList.remove('show'); modal.innerHTML = ''; };
+  modal.onclick = (e) => { if (e.target.id === 'fontUrlModal') close(); };
+  $('#xmlFallbackCancel').onclick = close;
+  $('#xmlFallbackOpen').onclick = () => { close(); openManualXmlModal(url); };
+}
+
+/* 手动粘贴 XML 全文完成订阅 */
+function openManualXmlModal(originalUrl) {
+  const modal = $('#fontUrlModal');
+  modal.innerHTML = `
+    <div class="widget-panel">
+      <h3 class="edit-title">手动粘贴 RSS XML</h3>
+      <p class="hint" style="padding:0 4px 10px;line-height:1.65;">
+        用浏览器打开 RSS 地址，全选内容复制后粘贴到下面。<br>
+        手动导入的播客之后<b>无法自动刷新</b>，但单集可正常播放。
+      </p>
+      <textarea class="edit-textarea" id="manualXmlInput" placeholder="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&#10;&lt;rss version=&quot;2.0&quot;&gt;..." style="min-height:180px;max-height:280px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.5;"></textarea>
+      <div class="edit-actions">
+        <button class="edit-cancel" id="manualXmlCancel" type="button">取消</button>
+        <button class="edit-save" id="manualXmlConfirm" type="button">解析并订阅</button>
+      </div>
+    </div>`;
+  modal.classList.add('show');
+  setTimeout(() => { const i = $('#manualXmlInput'); if (i) i.focus(); }, 200);
+  const close = () => { modal.classList.remove('show'); modal.innerHTML = ''; };
+  modal.onclick = (e) => { if (e.target.id === 'fontUrlModal') close(); };
+  $('#manualXmlCancel').onclick = close;
+  $('#manualXmlConfirm').onclick = () => {
+    let xmlText = $('#manualXmlInput').value.trim();
+    if (!xmlText) { toast('XML 内容不能为空'); return; }
+
+    // 1. 尝试找 <rss> 或 <feed>
+    const rssMatch = xmlText.match(/<rss[\s>]/i);
+    const feedMatch = xmlText.match(/<feed[\s>]/i);
+    
+    if (rssMatch) {
+      xmlText = xmlText.slice(rssMatch.index);
+      if (!xmlText.includes('</rss>')) xmlText += '\n</rss>';
+    } else if (feedMatch) {
+      xmlText = xmlText.slice(feedMatch.index);
+      if (!xmlText.includes('</feed>')) xmlText += '\n</feed>';
+    } else {
+      // 2. 没找到 <rss>，但包含 <channel>（只复制了中间部分）
+      const channelMatch = xmlText.match(/<channel[\s>]/i);
+      if (channelMatch) {
+        xmlText = xmlText.slice(channelMatch.index);
+        if (!xmlText.includes('</channel>')) xmlText += '\n</channel>';
+        xmlText = `<rss version="2.0">\n${xmlText}\n</rss>`;
+      } else {
+        // 3. 连 <channel> 都没有，但有 <item>（极端情况）
+        const itemMatch = xmlText.match(/<item[\s>]/i);
+        if (itemMatch) {
+          xmlText = xmlText.slice(itemMatch.index);
+          if (!xmlText.includes('</channel>')) {
+             xmlText = `<channel>\n<title>手动导入</title>\n${xmlText}\n</channel>`;
+          }
+          xmlText = `<rss version="2.0">\n${xmlText}\n</rss>`;
+        } else {
+          toast('未找到 RSS 特征标签（rss/channel/item），请检查复制内容');
+          return;
+        }
+      }
+    }
+
+    const parsed = parsePodcastRSS(xmlText, originalUrl || `manual://${uid('pc_')}`);
+    if (!parsed) { toast('解析失败：XML 结构不完整，请务必从第一行开始复制'); return; }
+    
+    // ★ 新增：检测是否拉取到了能播放的单集
+    if (!parsed.episodes || parsed.episodes.length === 0) {
+      toast('解析成功，但未找到任何音频文件。你可能漏掉了包含 <enclosure> 的完整段落，请重新复制');
+      return;
+    }
+    
+    close();
+    const rssUrl = `manual://${uid('pc_')}`;
+    state.podcasts.push({
+      id: uid('pc_'),
+      title: parsed.title,
+      author: parsed.author,
+      description: parsed.description,
+      coverUrl: parsed.coverUrl,
+      rssUrl,
+      lastFetchedAt: Date.now(),
+      lastError: null,
+      episodes: parsed.episodes
+    });
+    save();
+    toast(`订阅成功 · ${parsed.episodes.length} 集`);
+    renderMusicApp();
+  };
+}
+
+function openPodcastMenu(podcast) {
+  const modal = $('#widgetConfigModal');
+  modal.innerHTML = `
+    <div class="widget-panel">
+      <h3 class="edit-title">${esc(podcast.title)}</h3>
+      <div class="list">
+        <div class="list-item" id="pcRefresh"><div class="li-main"><div class="li-title">刷新内容</div><div class="li-sub">${podcast.rssUrl && podcast.rssUrl.startsWith('manual://') ? '手动导入的播客无法刷新' : '重新拉取 RSS 获取最新单集'}</div></div><span class="li-chev">›</span></div>
+        <div class="list-item" id="pcRename"><div class="li-main"><div class="li-title">重命名</div></div><span class="li-chev">›</span></div>
+        <div class="list-item" id="pcDelete"><div class="li-main"><div class="li-title" style="color:var(--danger);">取消订阅</div><div class="li-sub">不会删除已经入库的播放条目</div></div><span class="li-chev">›</span></div>
+      </div>
+      <div class="edit-actions"><button class="edit-cancel" id="pcMenuCancel" type="button">取消</button></div>
+    </div>`;
+  modal.classList.add('show');
+  const close = () => { modal.classList.remove('show'); modal.innerHTML = ''; };
+  modal.onclick = (e) => { if (e.target.id === 'widgetConfigModal') close(); };
+  $('#pcMenuCancel').onclick = close;
+  $('#pcRefresh').onclick = async () => {
+    close();
+    if (!podcast.rssUrl || podcast.rssUrl.startsWith('manual://')) { toast('手动导入的播客无法刷新'); return; }
+    await refreshPodcast(podcast, { silent: false });
+  };
+  $('#pcRename').onclick = async () => {
+    close();
+    const name = await showInputModal({ title: '重命名播客', defaultValue: podcast.title, placeholder: '播客名' });
+    if (!name || !name.trim()) return;
+    podcast.title = name.trim().slice(0, 60);
+    save(); renderMusicApp();
+    toast('已重命名');
+  };
+  $('#pcDelete').onclick = () => {
+    close();
+    if (!confirm(`取消订阅「${podcast.title}」？`)) return;
+    state.podcasts = state.podcasts.filter(p => p.id !== podcast.id);
+    save();
+    musicActivePodcastId = null;
+    renderMusicApp();
+    toast('已取消订阅');
+  };
+}
+
+/* ---------- RSS 拉取（5 通道并行竞速，任一成功即返回，全部失败才报错） ---------- */
+const PODCAST_PROXIES = [
+  { name: 'codetabs',       wrap: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}` },
+  { name: 'allorigins-raw', wrap: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` },
+  { name: 'corsproxy',      wrap: (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}` },
+  { name: 'allorigins-get', wrap: (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, json: true },
+  { name: 'cors-proxy-org', wrap: (url) => `https://cors-proxy.org/api/v1/?url=${encodeURIComponent(url)}` },
+  { name: 'proxy-cors-sh',  wrap: (url) => `https://proxy.cors.sh/${url}` }
+];
+
+async function fetchRSSWithProxy(url) {
+  return new Promise((resolve, reject) => {
+    const errors = [];
+    let done = false;
+    let remaining = PODCAST_PROXIES.length;
+
+    const settleFail = (proxyName, msg) => {
+      if (done) return;
+      errors.push(`[${proxyName}] ${msg}`);
+      remaining--;
+      if (remaining === 0) {
+        done = true;
+        const err = new Error('所有代理均失败：' + errors.slice(0, 4).join('；'));
+        err.allErrors = errors.slice();
+        reject(err);
+      }
+    };
+
+    PODCAST_PROXIES.forEach((proxy) => {
+      fetchWithTimeout(proxy.wrap(url), 8000)
+        .then(async (res) => {
+          if (done) return;
+          if (!res.ok) { settleFail(proxy.name, `HTTP ${res.status}`); return; }
+          let text = await res.text();
+          if (done) return;
+          if (proxy.json) {
+            try {
+              const j = JSON.parse(text);
+              text = (j && (j.contents || j.body || j.data)) || '';
+            } catch (_) { settleFail(proxy.name, 'JSON 包装解析失败'); return; }
+          }
+          if (!text || text.length < 100) { settleFail(proxy.name, '返回内容过短'); return; }
+          if (!/<(rss|feed|channel|item|entry)[\s>]/i.test(text.slice(0, 8000))) {
+            settleFail(proxy.name, '非 RSS/Atom 格式'); return;
+          }
+          done = true;
+          resolve(text);
+        })
+        .catch((e) => {
+          if (done) return;
+          settleFail(proxy.name, (e && e.message) || '网络错误');
+        });
+    });
+  });
+}
+
+function parsePodcastRSS(xmlText) {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'application/xml');
+    
+    // ★ 新增兜底：如果标准解析器报错（通常是因为微信/TXT传输导致某处标签截断），启用正则强行提取
+    if (doc.querySelector('parsererror')) {
+      console.warn('标准DOM解析失败，启用正则兜底提取...');
+      return parsePodcastRSSFallback(xmlText);
+    }
+
+    const findTag = (el, tag) => {
+      if (!el) return null;
+      let arr = el.getElementsByTagName(tag);
+      if (arr.length) return arr[0];
+      try {
+        const local = tag.split(':').pop();
+        arr = el.getElementsByTagNameNS('*', local);
+        if (arr.length) return arr[0];
+      } catch (_) {}
+      return null;
+    };
+    const getText = (el, tag) => {
+      const node = findTag(el, tag);
+      return node ? (node.textContent || '').trim() : '';
+    };
+    const getAttr = (el, tag, attr) => {
+      const node = findTag(el, tag);
+      return node ? (node.getAttribute(attr) || '').trim() : '';
+    };
+    const clip = (s, n) => {
+      s = String(s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      return s.length > n ? s.slice(0, n) + '…' : s;
+    };
+
+    const isAtom = doc.documentElement.tagName.toLowerCase() === 'feed'
+      || doc.querySelector('feed') !== null;
+
+    let title = '', author = '', description = '', coverUrl = '';
+    let itemEls = [];
+
+    if (isAtom) {
+      const feed = doc.querySelector('feed');
+      title = getText(feed, 'title');
+      author = getText(feed, 'name') || getText(feed, 'author');
+      description = getText(feed, 'subtitle') || getText(feed, 'summary');
+      coverUrl = getText(feed, 'icon') || getText(feed, 'logo');
+      if (!coverUrl) {
+        const links = feed.querySelectorAll('link');
+        for (const l of links) {
+          const rel = (l.getAttribute('rel') || '').toLowerCase();
+          if (rel === 'image' || rel === 'logo') {
+            coverUrl = l.getAttribute('href') || '';
+            if (coverUrl) break;
+          }
+        }
+      }
+      itemEls = Array.from(feed.querySelectorAll('entry'));
+    } else {
+      const channel = doc.querySelector('channel') || doc.querySelector('rss');
+      title = getText(channel, 'title');
+      author = getText(channel, 'itunes:author') || getText(channel, 'author');
+      description = getText(channel, 'description') || getText(channel, 'itunes:summary');
+      coverUrl = getAttr(channel, 'itunes:image', 'href');
+      if (!coverUrl) {
+        const imgEl = findTag(channel, 'image');
+        if (imgEl) coverUrl = getText(imgEl, 'url');
+      }
+      itemEls = Array.from(channel.querySelectorAll('item'));
+    }
+
+    const episodes = [];
+    itemEls.forEach(item => {
+      let guid = '', epTitle = '', pubDateStr = '', epDesc = '', audioUrl = '', epCover = '', duration = 0;
+
+      if (isAtom) {
+        guid = getText(item, 'id');
+        epTitle = getText(item, 'title');
+        pubDateStr = getText(item, 'updated') || getText(item, 'published');
+        epDesc = getText(item, 'summary') || getText(item, 'content');
+        const links = item.querySelectorAll('link');
+        for (const l of links) {
+          const rel = (l.getAttribute('rel') || '').toLowerCase();
+          if (rel === 'enclosure') {
+            audioUrl = l.getAttribute('href') || '';
+            if (audioUrl) break;
+          }
+        }
+        if (!audioUrl) {
+          for (const l of links) {
+            const type = (l.getAttribute('type') || '').toLowerCase();
+            if (type.startsWith('audio/')) {
+              audioUrl = l.getAttribute('href') || '';
+              if (audioUrl) break;
+            }
+          }
+        }
+      } else {
+        guid = getText(item, 'guid') || getText(item, 'link');
+        epTitle = getText(item, 'title');
+        pubDateStr = getText(item, 'pubDate');
+        epDesc = getText(item, 'description') || getText(item, 'itunes:summary');
+        const encl = item.querySelector('enclosure');
+        if (encl) audioUrl = encl.getAttribute('url') || '';
+        if (!audioUrl) {
+          const media = item.querySelector('media\\:content, [name="media:content"]');
+          if (media) {
+            const type = (media.getAttribute('type') || '').toLowerCase();
+            if (type.startsWith('audio/') || type === '') {
+              audioUrl = media.getAttribute('url') || '';
+            }
+          }
+        }
+        const durRaw = getText(item, 'itunes:duration');
+        if (durRaw) duration = parsePodcastDuration(durRaw);
+      }
+
+      let pubTs = 0;
+      if (pubDateStr) {
+        const d = new Date(pubDateStr);
+        if (!isNaN(d.getTime())) pubTs = d.getTime();
+      }
+
+      if (!epTitle) epTitle = '未命名单集';
+      if (!guid) guid = audioUrl || (epTitle + '|' + pubTs);
+
+      episodes.push({
+        guid: guid,
+        title: clip(epTitle, 120),
+        pubDate: pubTs,
+        duration: duration,
+        audioUrl: audioUrl,
+        description: clip(epDesc, 300),
+        coverUrl: epCover || null
+      });
+    });
+
+    episodes.sort((a, b) => (b.pubDate || 0) - (a.pubDate || 0));
+
+    return {
+      title: clip(title, 100) || '未命名播客',
+      author: clip(author, 60),
+      description: clip(description, 500),
+      coverUrl: coverUrl || null,
+      episodes: episodes
+    };
+  } catch (e) {
+    console.warn('parsePodcastRSS error:', e);
+    return parsePodcastRSSFallback(xmlText);
+  }
+}
+
+/* 正则强行提取兜底（当标准 XML 被截断或包含非法字符时使用） */
+function parsePodcastRSSFallback(xmlText) {
+  try {
+    const text = String(xmlText || '');
+    // 提取 Channel 信息
+    const titleMatch = text.match(/<channel[^>]*>[\s\S]*?<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
+    const authorMatch = text.match(/<itunes:author>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/itunes:author>/i) || text.match(/<author>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/author>/i);
+    const descMatch = text.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i);
+    const coverMatch = text.match(/<itunes:image\s+href="([^"]+)"/i) || text.match(/<image>[\s\S]*?<url>([\s\S]*?)<\/url>/i);
+    
+    const clip = (s, n) => {
+      s = String(s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      return s.length > n ? s.slice(0, n) + '…' : s;
+    };
+
+    // 提取单集
+    const episodes = [];
+    const itemRegex = /<item[\s>][\s\S]*?<\/item>/gi;
+    let itemMatch;
+    while ((itemMatch = itemRegex.exec(text)) !== null) {
+      const itemStr = itemMatch[0];
+      const epTitleMatch = itemStr.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
+      const enclosureMatch = itemStr.match(/<enclosure[^>]*url="([^"]+)"[^>]*>/i);
+      
+      // 核心：只要找到了音频链接，这一集就算数！
+      if (!enclosureMatch) continue;
+      
+      const guidMatch = itemStr.match(/<guid[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/guid>/i);
+      const pubDateMatch = itemStr.match(/<pubDate>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/pubDate>/i);
+      const durationMatch = itemStr.match(/<itunes:duration>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/itunes:duration>/i);
+      
+      let pubTs = 0;
+      if (pubDateMatch) {
+        const d = new Date(pubDateMatch[1].trim());
+        if (!isNaN(d.getTime())) pubTs = d.getTime();
+      }
+      
+      episodes.push({
+        guid: (guidMatch ? guidMatch[1].trim() : '') || enclosureMatch[1],
+        title: epTitleMatch ? epTitleMatch[1].replace(/<[^>]+>/g, '').trim() : '未命名单集',
+        pubDate: pubTs,
+        duration: durationMatch ? parsePodcastDuration(durationMatch[1]) : 0,
+        audioUrl: enclosureMatch[1],
+        description: '',
+        coverUrl: null
+      });
+    }
+    
+    if (episodes.length === 0) return null; // 没找到单集，真的救不回来了
+
+    return {
+      title: clip(titleMatch ? titleMatch[1] : '', 100) || '未命名播客',
+      author: clip(authorMatch ? authorMatch[1] : '', 60),
+      description: clip(descMatch ? descMatch[1] : '', 500),
+      coverUrl: coverMatch ? coverMatch[1] : null,
+      episodes: episodes
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+function parsePodcastDuration(raw) {
+  if (!raw) return 0;
+  raw = String(raw).trim();
+  if (/^\d+(\.\d+)?$/.test(raw)) return Math.round(parseFloat(raw));
+  const parts = raw.split(':').map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return 0;
+}
+
+/* ---------- 播客刷新：合并策略 + 单播客刷新 + 批量刷新 ---------- */
+function mergePodcastEpisodes(oldEps, newEps) {
+  // 保守策略：如果新解析出 0 集，说明可能拉到了半截/坏内容，保留旧数据
+  if (!Array.isArray(newEps) || newEps.length === 0) return oldEps || [];
+  // 否则以新数据为准（主播删集后旧集应当消失）
+  return newEps;
+}
+
+async function refreshPodcast(podcast, { silent = false } = {}) {
+  if (!podcast || !podcast.rssUrl) return false;
+  if (podcast.rssUrl.startsWith('manual://')) {
+    if (!silent) toast('手动导入的播客无法自动刷新');
+    return false;
+  }
+  if (!silent) showLoadingToast('正在刷新（5 通道并行，约 8 秒）…');
+  try {
+    let xmlText = null;
+    try { xmlText = await fetchRSSWithProxy(podcast.rssUrl); } catch (_) {}
+    if (!xmlText) throw new Error('所有代理均失败');
+    const parsed = parsePodcastRSS(xmlText, podcast.rssUrl);
+    if (!parsed) throw new Error('RSS 解析失败');
+    podcast.title = parsed.title || podcast.title;
+    podcast.author = parsed.author || podcast.author;
+    podcast.description = parsed.description || podcast.description;
+    podcast.coverUrl = parsed.coverUrl || podcast.coverUrl;
+    podcast.episodes = mergePodcastEpisodes(podcast.episodes, parsed.episodes);
+    podcast.lastFetchedAt = Date.now();
+    podcast.lastError = null;
+    save();
+    if (!silent) {
+      hideLoadingToast();
+      toast(`已刷新 · 共 ${podcast.episodes.length} 集`);
+      renderMusicApp();
+    }
+    return true;
+  } catch (e) {
+    podcast.lastError = (e && e.message) || '刷新失败';
+    save();
+    if (!silent) {
+      hideLoadingToast();
+      toast('刷新失败：' + friendlyError(e));
+      renderMusicApp();
+    }
+    return false;
+  }
+}
+
+let _lastPodcastRefreshAt = 0;
+async function refreshAllStalePodcasts({ maxAgeMs = 6 * 60 * 60 * 1000, force = false } = {}) {
+  if (!state.settings || !state.settings.podcastAutoRefresh) return;
+  const now = Date.now();
+  if (!force && now - _lastPodcastRefreshAt < 5 * 60 * 1000) return; // 5 分钟内不重复
+  const stale = state.podcasts.filter(p => {
+    if (!p || !p.rssUrl) return false;
+    if (p.rssUrl.startsWith('manual://')) return false; // 手动导入的不刷新
+    if (force) return true;
+    return !p.lastFetchedAt || (now - p.lastFetchedAt) > maxAgeMs;
+  });
+  if (!stale.length) return;
+  _lastPodcastRefreshAt = now;
+  for (const p of stale) {
+    try { await refreshPodcast(p, { silent: true }); } catch (_) {}
+    await new Promise(r => setTimeout(r, 900)); // 每个之间留点间隔，避免打满代理
+  }
+  // 批量刷新完成后，如果当前在播客列表页，重绘一次
+  if (currentApp === 'music' && musicSubView === 'podcast' && !musicActivePodcastId) {
+    try { renderMusicApp(); } catch (_) {}
+  }
+}
+
 /* ---------- 播放页 ---------- */
 function renderMusicPlayerPage() {
   const t = player.getTrack();
@@ -7170,6 +8242,7 @@ function renderMusicPlayerPage() {
           <button class="music-action-btn" id="mpAddPl" type="button">${ICONS.plus}</button>
           <button class="music-action-btn" id="mpLyrics" type="button">${ICONS.lyrics}</button>
           <button class="music-action-btn" id="mpQueue" type="button">${ICONS.list}</button>
+          <button class="music-action-btn" id="mpRate" type="button" style="font-size:13px;font-weight:600;letter-spacing:-0.5px;">${(state.settings.playbackRate || 1).toFixed(1)}x</button>
         </div>
       </div>
     </div>
@@ -7208,7 +8281,8 @@ function renderMusicPlayerPage() {
         bindPlayerMain(t);
   };
 
-  $('#mpQueue').onclick = () => openPlayerQueuePanel(); // 👈 加在这里
+  $('#mpQueue').onclick = () => openPlayerQueuePanel();
+  $('#mpRate').onclick = () => openPlaybackRatePicker(); // 👈 新增：倍速按钮点击事件
 
   bindPlayerMain(t);
   bindProgressDrag();
@@ -7217,6 +8291,117 @@ if (typeof renderGlobalPlayer === 'function') renderGlobalPlayer();
 }
 
 /* ---------- 当前播放列表面板 ---------- */
+function openPlaybackRatePicker() {
+  const modal = $('#fontUrlModal');
+  const currentRate = state.settings.playbackRate || 1;
+  const rates = [0.8, 1.0, 1.2, 1.5, 2.0];
+  modal.innerHTML = `
+    <div class="widget-panel">
+      <h3 class="edit-title">选择倍速</h3>
+      <div class="list">
+        ${rates.map(r => `
+          <div class="list-item" data-rate="${r}">
+            <div class="li-main"><div class="li-title">${r.toFixed(1)}x</div></div>
+            ${currentRate === r ? '<span class="li-badge">使用中</span>' : '<span class="li-chev">›</span>'}
+          </div>
+        `).join('')}
+      </div>
+      <div class="edit-actions"><button class="edit-cancel" id="rateCancel" type="button">取消</button></div>
+    </div>
+  `;
+  modal.classList.add('show');
+  const close = () => { modal.classList.remove('show'); modal.innerHTML = ''; };
+  modal.onclick = (e) => { if (e.target.id === 'fontUrlModal') close(); };
+  $('#rateCancel').onclick = close;
+  
+  modal.querySelector('.list').onclick = (e) => {
+    const item = e.target.closest('.list-item');
+    if (!item) return;
+    const rate = parseFloat(item.dataset.rate);
+    player.setRate(rate);
+    toast('倍速已切换为 ' + rate.toFixed(1) + 'x');
+    close();
+    const rateBtn = $('#mpRate');
+    if (rateBtn) rateBtn.textContent = rate.toFixed(1) + 'x';
+  };
+}
+
+function startSleepTimer(minutes) {
+  cancelSleepTimer();
+  if (minutes <= 0) return;
+  sleepTimerState.deadline = Date.now() + minutes * 60000;
+  sleepTimerState.active = true;
+  sleepTimerState.fading = false;
+  if (player.audio) sleepTimerState.originalVolume = player.audio.volume;
+  sleepTimerState.tickTimer = setInterval(tickSleepTimer, 1000);
+  toast(`已设置睡眠定时 ${minutes} 分钟`);
+}
+
+function cancelSleepTimer() {
+  if (sleepTimerState.tickTimer) clearInterval(sleepTimerState.tickTimer);
+  sleepTimerState.tickTimer = null;
+  sleepTimerState.active = false;
+  sleepTimerState.deadline = 0;
+  sleepTimerState.fading = false;
+  if (player.audio) player.audio.volume = sleepTimerState.originalVolume || 1;
+}
+
+function tickSleepTimer() {
+  if (!sleepTimerState.active) return;
+  const remain = sleepTimerState.deadline - Date.now();
+  if (remain <= 0) {
+    if (player.audio) player.audio.pause();
+    toast('睡眠定时已到，播放已暂停');
+    cancelSleepTimer();
+    if (currentApp === 'music' && musicSubView === 'player') renderMusicPlayerPage();
+    return;
+  }
+  if (remain <= 30000 && !sleepTimerState.fading && player.audio) {
+    sleepTimerState.fading = true;
+  }
+  if (sleepTimerState.fading && player.audio) {
+    const pct = Math.max(0, remain / 30000);
+    player.audio.volume = sleepTimerState.originalVolume * pct;
+  }
+}
+
+function openSleepTimerPicker() {
+  const modal = $('#fontUrlModal');
+  const remainStr = sleepTimerState.active 
+    ? Math.ceil((sleepTimerState.deadline - Date.now()) / 60000) + ' 分钟后结束' 
+    : '未开启';
+  modal.innerHTML = `
+    <div class="widget-panel">
+      <h3 class="edit-title">睡眠定时</h3>
+      <p class="hint" style="text-align:center;padding:0 0 16px;color:var(--ink-3);">当前状态：${remainStr}</p>
+      <div class="list">
+        <div class="list-item" data-min="15"><div class="li-main"><div class="li-title">15 分钟</div></div></div>
+        <div class="list-item" data-min="30"><div class="li-main"><div class="li-title">30 分钟</div></div></div>
+        <div class="list-item" data-min="45"><div class="li-main"><div class="li-title">45 分钟</div></div></div>
+        <div class="list-item" data-min="60"><div class="li-main"><div class="li-title">60 分钟</div></div></div>
+        ${sleepTimerState.active ? `<div class="list-item" data-min="0"><div class="li-main"><div class="li-title" style="color:var(--danger);">关闭定时</div></div></div>` : ''}
+      </div>
+      <div class="edit-actions"><button class="edit-cancel" id="sleepTimerCancel" type="button">取消</button></div>
+    </div>
+  `;
+  modal.classList.add('show');
+  const close = () => { modal.classList.remove('show'); modal.innerHTML = ''; };
+  modal.onclick = (e) => { if (e.target.id === 'fontUrlModal') close(); };
+  $('#sleepTimerCancel').onclick = close;
+  modal.querySelector('.list').onclick = (e) => {
+    const item = e.target.closest('.list-item');
+    if (!item) return;
+    const min = parseInt(item.dataset.min, 10);
+    if (min === 0) {
+      cancelSleepTimer();
+      toast('已关闭睡眠定时');
+    } else {
+      startSleepTimer(min);
+    }
+    close();
+  };
+}
+
 function openPlayerQueuePanel() {
   if (!player.queue || !player.queue.length) { toast('当前没有播放队列'); return; }
   const modal = $('#widgetConfigModal');
@@ -10903,6 +12088,8 @@ async function load() {
       if (typeof state.settings.lockPasswordEnabled !== 'boolean') state.settings.lockPasswordEnabled = true;
       if (typeof state.settings.autoLikeComments !== 'boolean') state.settings.autoLikeComments = true;
       if (typeof state.settings.layoutSeededV2 !== 'boolean') state.settings.layoutSeededV2 = false;
+      if (typeof state.settings.podcastAutoRefresh !== 'boolean') state.settings.podcastAutoRefresh = true;
+      if (typeof state.settings.playbackRate !== 'number') state.settings.playbackRate = 1;
     }
     if (s.user && typeof s.user === 'object') {
       state.user = {
@@ -11003,6 +12190,7 @@ async function load() {
             url: t.url || null,
             onlineSource: t.onlineSource || null,
             onlineId: t.onlineId || null, 
+            podcastId: t.podcastId || null,
             lyrics: t.lyrics || '',
             lyricsLines: Array.isArray(t.lyricsLines) ? t.lyricsLines : null,
             lyricsHasTime: hasTime,
@@ -11022,9 +12210,31 @@ async function load() {
         userCover: s.music.userCover || null,
         playHistory: Array.isArray(s.music.playHistory) ? s.music.playHistory : [],
         lastPlayedId: s.music.lastPlayedId || null,
-        lastMode: s.music.lastMode || 'loop-all'
+        lastMode: s.music.lastMode || 'loop-all',
+        progress: (s.music.progress && typeof s.music.progress === 'object') ? s.music.progress : {}
       };
       player.mode = state.music.lastMode || 'loop-all';
+    }
+    if (Array.isArray(s.podcasts)) {
+      state.podcasts = s.podcasts.map(p => ({
+        id: p.id || uid('pc_'),
+        title: p.title || '未命名播客',
+        author: p.author || '',
+        description: p.description || '',
+        coverUrl: p.coverUrl || null,
+        rssUrl: p.rssUrl || '',
+        lastFetchedAt: p.lastFetchedAt || 0,
+        lastError: p.lastError || null,
+        episodes: Array.isArray(p.episodes) ? p.episodes.map(ep => ({
+          guid: ep.guid || uid('ep_'),
+          title: ep.title || '未命名单集',
+          pubDate: ep.pubDate || 0,
+          duration: (typeof ep.duration === 'number' && isFinite(ep.duration)) ? ep.duration : 0,
+          audioUrl: ep.audioUrl || '',
+          description: ep.description || '',
+          coverUrl: ep.coverUrl || null
+        })).filter(ep => ep.audioUrl) : []
+      })).filter(p => p.rssUrl);
     }
     state.activeApiId = s.activeApiId || (state.apis[0] ? state.apis[0].id : null);
   } catch (e) { console.warn('读取失败', e); }
@@ -11098,6 +12308,9 @@ function buildGPFullHTML(t) {
       <div class="gp-full-btns">
         <button class="gp-btn play" id="gpPlay" type="button">${playIcon}</button>
         <button class="gp-btn next" id="gpNext" type="button">${ICONS.next}</button>
+        <button class="gp-btn close" id="gpClose" type="button" style="width:24px;height:24px;margin-left:4px;color:#8a8a90;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
         <button class="gp-btn gp-minimize" id="gpMinimize" type="button">${ICONS.musicNote}</button>
       </div>
     </div>`;
@@ -11187,6 +12400,14 @@ function bindGlobalPlayerEvents() {
       e.stopPropagation();
       player.unlocked = true;
       player.next();
+    };
+  }
+  const closeBtn = wrap.querySelector('#gpClose');
+  if (closeBtn) {
+    closeBtn.onclick = (e) => {
+      e.stopPropagation();
+      player.stop();
+      toast('已退出播放');
     };
   }
 
@@ -11375,7 +12596,8 @@ setTimeout(() => {
       if (currentApp === 'settings' && settingsSubView === 'lockPwd') { settingsSubView = 'main'; renderSettingsApp(); return; }
       if (currentApp === 'music') {
         if (musicSubView === 'player') { musicSubView = musicPlayerFrom || 'main'; _playerLyricsView = false; renderMusicApp(); return; }
-        if (musicSubView !== 'main') { musicSubView = 'main'; musicActivePlaylistId = null; renderMusicApp(); return; }
+        if (musicSubView === 'podcast' && musicActivePodcastId) { musicActivePodcastId = null; renderMusicApp(); return; }
+        if (musicSubView !== 'main') { musicSubView = 'main'; musicActivePlaylistId = null; musicActivePodcastId = null; renderMusicApp(); return; }
       }
       if (currentApp === 'chat') {
         if (chatTab === 'me' && meView === 'wallet') { meView = 'main'; renderChatApp(); return; }
@@ -11411,6 +12633,18 @@ setTimeout(() => {
     state.widgets.forEach(w => { if (w.type === 'clock' && w.config && w.config.city) cities.add(w.config.city); });
     cities.forEach(city => scheduleWeatherFetch(city));
   }, 400);
+
+  // ★ 启动时静默刷新过期播客（> 6 小时未更新）
+  setTimeout(() => {
+    refreshAllStalePodcasts().catch(() => {});
+  }, 2000);
+
+  // ★ 切回前台时静默刷新过期播客（> 30 分钟未更新，5 分钟内不重复触发）
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      refreshAllStalePodcasts({ maxAgeMs: 30 * 60 * 1000 }).catch(() => {});
+    }
+  });
 
             /* 全局 player 订阅：更新所有音乐盒 widget */
   player.subscribe(() => {
