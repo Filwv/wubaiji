@@ -6327,7 +6327,7 @@ function renderMusicMain() {
   const bgFit = state.music.bgFit || 'cover';
   
   // 如果用户没传背景图，背景层直接为空
-  const bgLayerStyle = bgImage ? `background-image:url('${bgImage}'); background-size:${bgFit}; opacity:${bgOpacity}; height:${bgMode === 'half' ? '300px' : '100%'};` : 'display:none;';
+  const isRainActive = state.music.theme === 'comics' && state.music.rainEnabled && state.music.motionEnabled;   const bgLayerStyle = bgImage ? `background-image:url('${bgImage}'); background-size:${bgFit}; opacity:${bgOpacity}; height:${bgMode === 'half' ? '300px' : '100%'};` : (isRainActive ? 'height:100%;' : 'display:none;');
   const bgLayerClass = bgMode === 'half' ? 'half-mode' : 'full-mode';
 
   appView.innerHTML = `
@@ -6470,9 +6470,6 @@ function renderMusicMain() {
   // ==========================================
   // 🌧️ 漫画主题专属：雨滴特效 (RaindropFX) 控制逻辑
   // ==========================================
-  console.log("尝试启动雨滴 - 主题:", state.music.theme, "开关:", state.music.rainEnabled, "库是否存在:", typeof RaindropFX !== 'undefined');
-  
-  // 1. 每次重绘前清理旧的雨滴实例
   const oldRainCanvas = document.getElementById('rainCanvas');
   if (oldRainCanvas) {
     if (oldRainCanvas.__raindropFx) {
@@ -6485,21 +6482,21 @@ function renderMusicMain() {
     window.__rainResizeHandler = null;
   }
 
-  // 2. 判断是否启动雨滴
   if (state.music.theme === 'comics' && state.music.rainEnabled && state.music.motionEnabled) {
+    // 1. 检查库是否加载
     if (typeof RaindropFX === 'undefined') {
-      console.error("❌ RaindropFX 库未加载，请检查 script 标签路径！");
+      toast("❌ 雨滴库未加载，请检查 script 路径！");
+      console.error("RaindropFX 库未加载！");
     } else {
-      const bgLayer = document.querySelector('.music-app-bg-layer') || document.querySelector('.music-main-scroll');
+      const bgLayer = document.querySelector('.music-app-bg-layer');
       if (bgLayer) {
         const canvas = document.createElement('canvas');
         canvas.id = 'rainCanvas';
-        // 注意这里加了 z-index: 0，确保它不会盖住文字内容
-        canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;'; 
+        // 注意这里 z-index 设置为 1，确保在背景之上，UI之下
+        canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;';
         bgLayer.appendChild(canvas);
         
         try {
-          // 读取用户配置，如果没有就用默认值
           const rConfig = state.music.rainConfig || { spawnInterval: 300, raindropSize: 30, blur: 2 };
           
           const rainFx = new RaindropFX({
@@ -6513,16 +6510,20 @@ function renderMusicMain() {
           
           canvas.__raindropFx = rainFx;
           rainFx.start();
-          console.log("✅ 雨滴特效已启动！");
+          toast("🌧️ 雨滴已加载"); // 给你个成功提示
 
           window.__rainResizeHandler = () => {
             const rect = bgLayer.getBoundingClientRect();
-            rainFx.resize(rect.width, rect.height);
+            // 确保宽高大于0才重载
+            if (rect.width > 0 && rect.height > 0) {
+              rainFx.resize(rect.width, rect.height);
+            }
           };
           window.__rainResizeHandler();
           window.addEventListener('resize', window.__rainResizeHandler);
         } catch (err) {
-          console.error("❌ 雨滴实例化失败:", err);
+          toast("❌ 初始化失败: " + err.message);
+          console.error("雨滴实例化失败:", err);
         }
       }
     }
