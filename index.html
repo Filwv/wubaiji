@@ -2996,95 +2996,73 @@ html,body{
 }
 .gp-animate { animation: gp-pop 0.3s cubic-bezier(.34,1.6,.4,1) forwards; }
 
-/* ===== 音乐主题切换面板 ===== */
+/* ===== 音乐主题切换面板（纯文字胶囊） ===== */
 .theme-scroll-wrap {
   display: flex;
   gap: 12px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  padding: 4px 4px 16px;
+  justify-content: center;
+  padding: 10px 4px 20px;
   margin: 0 -6px;
-  -webkit-overflow-scrolling: touch;
+  flex-wrap: wrap;
 }
-.theme-scroll-wrap::-webkit-scrollbar { display: none; }
 .theme-card {
-  flex: 0 0 130px;
-  scroll-snap-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-.theme-card:active { transform: scale(0.96); }
-.theme-card-preview {
-  width: 130px;
-  height: 180px;
-  border-radius: 16px;
-  background: #fff;
-  position: relative;
-  overflow: hidden;
-  border: 2px solid transparent;
-  box-shadow: var(--shadow-1);
-  transition: border-color 0.25s, box-shadow 0.25s;
-}
-.theme-card.active .theme-card-preview {
-  border-color: var(--accent-deep);
-  box-shadow: 0 8px 24px -10px rgba(110,125,148,0.4);
-}
-.theme-card-name {
-  font-size: 14px;
-  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 20px;
+  background: var(--bg-2);
   color: var(--ink-2);
-  letter-spacing: 0.5px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: all 0.25s ease;
+  user-select: none;
 }
-.theme-card.active .theme-card-name { color: var(--ink); }
-
-/* Lace 预览假象 */
-.preview-lace {
-  background: linear-gradient(180deg, #f4eff0, #faf6f7);
-}
-.preview-lace::before {
-  content: ''; position: absolute; inset: 0;
-  background-image: radial-gradient(circle at 50% 50%, rgba(180,150,175,0.15) 1px, transparent 1.5px);
-  background-size: 8px 8px;
-}
-.preview-lace::after {
-  content: '🎀'; position: absolute; bottom: 20px; right: 20px; font-size: 30px; opacity: 0.4;
+.theme-card:active { transform: scale(0.95); }
+.theme-card.active {
+  background: #fff;
+  color: var(--ink);
+  border-color: var(--accent-deep);
+  box-shadow: var(--shadow-1);
 }
 
-/* Comics 预览假象 */
-.preview-comics {
-  background: #f7f7f8;
+/* ===== 音乐主页全局背景层 ===== */
+.music-app-bg-layer {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: opacity 0.3s ease, height 0.3s ease;
+  overflow: hidden;
 }
-.preview-comics::before {
-  content: ''; position: absolute; inset: 12px;
-  border: 1.5px solid #2a2a2a;
-  box-shadow: 3px 3px 0 rgba(42,42,42,0.15);
+.music-app-bg-layer::after {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
 }
-.preview-comics::after {
-  content: ''; position: absolute; inset: 12px;
-  background-image: radial-gradient(#2a2a2a 1px, transparent 1.2px);
-  background-size: 6px 6px; opacity: 0.1;
+.music-app-bg-layer.half-mode::after {
+  background: linear-gradient(180deg, rgba(255,255,255,0) 60%, rgba(255,255,255,1) 100%);
+}
+.music-app-bg-layer.full-mode::after {
+  background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.3) 100%);
+}
+.music-main-scroll {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
 }
 
-/* Collage 预览假象 */
-.preview-collage {
-  background: #FFF4F5;
+/* ===== 清除原本 Lace 主题头像背后的山茶花（因为有全局背景接管了） ===== */
+[data-music-theme="lace"] .music-main-hero-avatar-wrap::before {
+  display: none !important;
 }
-.preview-collage::before {
-  content: ''; position: absolute; top: 24px; left: 16px; right: 16px; height: 60px;
-  background: #D1E3FF; transform: rotate(-2deg); border-radius: 2px;
-}
-.preview-collage::after {
-  content: ''; position: absolute; top: 76px; left: 20px; right: 20px; height: 60px;
-  background: #FAC7DA; transform: rotate(1.5deg); border-radius: 2px;
-  box-shadow: 1px 2px 0 rgba(0,0,0,0.05);
+[data-music-theme="lace"] .music-main-hero {
+  background: transparent !important;
 }
 
 /* ============================================================
-   🌸 主题一：Lace（雾面蕾丝）
+  🌸 主题一：Lace（雾面蕾丝）
    ============================================================ */
 [data-music-theme="lace"] {
   --lace-bg: #faf6f7;
@@ -3250,6 +3228,221 @@ html,body{
 /* 动效开关控制 */
 [data-motion="off"] [data-music-theme="lace"] .music-main-hero-avatar-wrap::before {
   animation: none !important;
+}
+
+/* ============================================================
+   📒 主题三：Collage（拼贴手帐）
+   ============================================================ */
+[data-music-theme="collage"] {
+  --col-bg: #FFF4F5; /* 极淡粉白 */
+  --col-blue: #D1E3FF; /* 雾蓝 */
+  --col-pink: #FAC7DA; /* 樱花粉 */
+  --col-ink: #4a3a2a;  /* 手帐深棕色文字 */
+  --col-ink-2: #8a7a6a;
+  --col-line: rgba(200, 170, 150, 0.2);
+  background-color: var(--col-bg) !important;
+}
+
+/* 整体加一层横线纸底纹 */
+[data-music-theme="collage"] .music-main-scroll {
+  background-image: linear-gradient(var(--col-line) 1px, transparent 1px);
+  background-size: 100% 28px;
+}
+
+/* --- 1. Hero 顶部区域 --- */
+[data-music-theme="collage"] .music-main-hero {
+  background: transparent;
+  border-bottom: none;
+  padding-bottom: 30px;
+}
+[data-music-theme="collage"] .music-main-hero::after {
+  display: none;
+}
+/* 头像变成拍立得纸片 */
+[data-music-theme="collage"] .music-main-hero-avatar-wrap {
+  background: #ffffff;
+  padding: 12px 12px 24px;
+  border-radius: 2px;
+  transform: rotate(-3deg);
+  box-shadow: 2px 4px 12px rgba(0,0,0,0.08);
+  width: max-content;
+  margin: 20px auto 0;
+  position: relative;
+}
+/* 头像上方贴一条粉色波点胶带 */
+[data-music-theme="collage"] .music-main-hero-avatar-wrap::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%) rotate(2deg);
+  width: 80px;
+  height: 24px;
+  background-image: url('./assets/tape-pink-dot.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  z-index: 5;
+  opacity: 0.9;
+}
+[data-music-theme="collage"] .music-main-hero-avatar {
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  width: 88px;
+  height: 88px;
+  background: var(--col-blue);
+}
+[data-music-theme="collage"] .music-main-hero-nickname {
+  color: var(--col-ink);
+  font-family: "Kaiti SC", "STKaiti", serif; /* 楷体/手写体感觉 */
+  font-size: 20px;
+  margin-top: 8px;
+}
+[data-music-theme="collage"] .music-main-stat-num { color: var(--col-ink); }
+[data-music-theme="collage"] .music-main-stat-label { color: var(--col-ink-2); }
+
+/* 右上角贴一个小蝴蝶结 */
+[data-music-theme="collage"] .music-main-hero-top::after {
+  content: '';
+  position: absolute;
+  top: 50px;
+  right: 20px;
+  width: 50px;
+  height: 40px;
+  background-image: url('./assets/collage-bow-blue.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  transform: rotate(10deg);
+  pointer-events: none;
+}
+
+/* --- 2. 快捷入口区（变成拍立得小纸片） --- */
+[data-music-theme="collage"] .music-main-quick {
+  background: transparent;
+  padding-top: 0;
+}
+[data-music-theme="collage"] .music-quick-item {
+  background: #ffffff;
+  border-radius: 2px;
+  box-shadow: 2px 3px 8px rgba(0,0,0,0.06);
+  transform: rotate(-2deg);
+}
+[data-music-theme="collage"] .music-quick-item:nth-child(2n) {
+  transform: rotate(2deg) translateY(4px);
+}
+[data-music-theme="collage"] .music-quick-item:nth-child(3n) {
+  transform: rotate(-1deg) translateY(-2px);
+}
+[data-music-theme="collage"] .music-quick-item:active {
+  transform: scale(0.94) rotate(0deg);
+  background: #f9f9f9;
+}
+[data-music-theme="collage"] .music-quick-icon { color: var(--col-ink); }
+[data-music-theme="collage"] .music-quick-label { color: var(--col-ink); }
+
+/* --- 3. Tab 栏改造（用胶带贴住） --- */
+[data-music-theme="collage"] .music-main-tabs {
+  background: transparent;
+  border-bottom: none;
+  position: relative;
+  margin: 10px 16px 0;
+  padding-bottom: 8px;
+}
+[data-music-theme="collage"] .music-main-tabs::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--col-blue);
+  border-radius: 1px;
+  border-bottom: 1px dashed #fff;
+}
+[data-music-theme="collage"] .music-main-tab {
+  color: var(--col-ink-2);
+  font-weight: 500;
+}
+[data-music-theme="collage"] .music-main-tab.active {
+  color: var(--col-ink);
+  font-weight: 700;
+}
+[data-music-theme="collage"] .music-main-tab.active::after {
+  display: none;
+}
+
+/* --- 4. 歌单列表（层叠的便签与纸片） --- */
+[data-music-theme="collage"] .music-main-list {
+  background: transparent;
+  padding-top: 14px;
+}
+[data-music-theme="collage"] .music-main-playlist {
+  background: #ffffff;
+  border: none;
+  border-radius: 4px;
+  margin: 0 16px 16px;
+  padding: 14px 16px 14px 20px;
+  box-shadow: 2px 4px 10px rgba(0,0,0,0.06), inset 0 0 0 1px rgba(209,227,255,0.4);
+  position: relative;
+  transform: rotate(0.8deg);
+}
+[data-music-theme="collage"] .music-main-playlist:nth-child(2n) {
+  transform: rotate(-1.2deg);
+}
+[data-music-theme="collage"] .music-main-playlist:nth-child(3n) {
+  transform: rotate(1.5deg) translateX(2px);
+}
+/* 每张歌单顶部贴一条蓝波点或紫格纹胶带 */
+[data-music-theme="collage"] .music-main-playlist::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 30px;
+  width: 60px;
+  height: 20px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  z-index: 2;
+  opacity: 0.85;
+}
+[data-music-theme="collage"] .music-main-playlist:nth-child(1)::before,
+[data-music-theme="collage"] .music-main-playlist:nth-child(4)::before {
+  background-image: url('./assets/tape-blue-dot.png');
+  transform: rotate(-3deg);
+}
+[data-music-theme="collage"] .music-main-playlist:nth-child(2)::before,
+[data-music-theme="collage"] .music-main-playlist:nth-child(5)::before {
+  background-image: url('./assets/tape-purple-check.png');
+  left: 50%;
+  transform: translateX(-50%) rotate(1deg);
+}
+[data-music-theme="collage"] .music-main-playlist:nth-child(3)::before,
+[data-music-theme="collage"] .music-main-playlist:nth-child(6)::before {
+  background-image: url('./assets/tape-cherry-check.png');
+  left: auto;
+  right: 30px;
+  transform: rotate(2deg);
+}
+
+[data-music-theme="collage"] .music-main-playlist-cover {
+  border-radius: 2px;
+  border: 1px solid rgba(0,0,0,0.05);
+  box-shadow: 1px 2px 4px rgba(0,0,0,0.1);
+}
+[data-music-theme="collage"] .music-main-playlist-name {
+  color: var(--col-ink);
+  font-weight: 700;
+}
+[data-music-theme="collage"] .music-main-playlist-sub {
+  color: var(--col-ink-2);
+  font-family: monospace;
+}
+[data-music-theme="collage"] .music-main-playlist-action {
+  border-radius: 2px;
+  border: 1px dashed var(--col-ink-2);
+  color: var(--col-ink-2);
 }
 
 /* ===== 批量导入链接 ===== */
@@ -5901,7 +6094,7 @@ function renderMusicMain() {
     ? `<img src="${userAvatar}" alt="">`
     : `<span>${esc((state.user.name || '我')[0])}</span>`;
   const nickname = state.music.userNickname || state.user.name || '我';
-  const heroStyle = state.music.userCover ? `background-image:url('${state.music.userCover}');` : '';
+
 
   const musicFavs = getMusicFavorites(); // 👈 获取纯音乐收藏
   const favCover = (() => {
@@ -5970,10 +6163,20 @@ function renderMusicMain() {
       </div>
     </div>`;
 
+  const hasUserCover = !!state.music.userCover;
+  const bgImage = hasUserCover ? state.music.userCover : './assets/lace-flower-white.png';
+  const bgMode = state.music.bgMode || 'full';
+  const bgOpacity = state.music.bgOpacity ?? 0.85;
+  const bgFit = state.music.bgFit || 'cover';
+  
+  const bgLayerStyle = `background-image:url('${bgImage}'); background-size:${bgFit}; opacity:${bgOpacity}; height:${bgMode === 'half' ? '300px' : '100%'};`;
+  const bgLayerClass = bgMode === 'half' ? 'half-mode' : 'full-mode';
+
   appView.innerHTML = `
     <div class="music-app" data-music-theme="${state.music.theme || 'lace'}" data-motion="${state.music.motionEnabled ? 'on' : 'off'}">
+      <div class="music-app-bg-layer ${bgLayerClass}" style="${bgLayerStyle}"></div>
       <div class="music-main-scroll" id="musicMainScroll">
-        <div class="music-main-hero" id="musicMainHero" style="${heroStyle}">
+        <div class="music-main-hero" id="musicMainHero">
           <div class="music-main-hero-top">
             <button class="back-btn" data-back>‹ 返回</button>
             <div class="music-main-hero-right">
@@ -6132,8 +6335,8 @@ function openMusicMainMoreMenu() {
           <div class="li-main"><div class="li-title">编辑昵称和头像</div></div>
           <span class="li-chev">›</span>
         </div>
-        <div class="list-item" id="mmmChangeCover">
-          <div class="li-main"><div class="li-title">更换主页背景</div></div>
+        <div class="list-item" id="mmmBgSettings">
+          <div class="li-main"><div class="li-title">背景图设置</div><div class="li-sub">全屏/半屏 · 透明度 · 填充度</div></div>
           <span class="li-chev">›</span>
         </div>
         ${state.music.userCover ? `
@@ -6166,7 +6369,7 @@ function openMusicMainMoreMenu() {
   };
   $('#mmmImportUrl').onclick = () => { close(); importMusicFromUrls(); };
   $('#mmmEditProfile').onclick = () => { close(); openMusicProfileEditor(); };
-  $('#mmmChangeCover').onclick = () => { close(); pickMusicMainCover(); };
+  $('#mmmBgSettings').onclick = () => { close(); openMusicBgSettings(); };
   
   const clearBtn = $('#mmmClearCover');
   if (clearBtn) clearBtn.onclick = () => {
@@ -6190,8 +6393,7 @@ function openMusicThemePicker() {
   
   const cardsHTML = themes.map(t => `
     <div class="theme-card ${state.music.theme === t.id ? 'active' : ''}" data-theme="${t.id}">
-      <div class="theme-card-preview preview-${t.id}"></div>
-      <div class="theme-card-name">${t.name}</div>
+      ${t.name}
     </div>
   `).join('');
 
@@ -6236,6 +6438,127 @@ async function createNewPlaylistFromMain() {
   musicSubView = 'playlist';
   renderMusicApp();
   toast('歌单已创建');
+}
+
+function openMusicBgSettings() {
+  const modal = $('#widgetConfigModal');
+  const hasCover = !!state.music.userCover;
+  const bgMode = state.music.bgMode || 'full';
+  const bgOpacity = state.music.bgOpacity ?? 0.85;
+  const bgFit = state.music.bgFit || 'cover';
+
+  modal.innerHTML = `
+    <div class="widget-panel">
+      <h3 class="edit-title">背景图设置</h3>
+      
+      <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;">
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:4px;">自定义背景图片</div>
+          <div style="font-size:12px;color:var(--ink-3);">${hasCover ? '当前已自定义' : '未设置，默认显示山茶花'}</div>
+        </div>
+        <button class="btn-ghost" id="bgBtnPick" style="border:none;background:rgba(120,120,128,.12);color:#3a3a3e;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;flex-shrink:0;">选择图片</button>
+        ${hasCover ? `<button class="btn-ghost" id="bgBtnClear" style="border:none;background:rgba(217,122,122,.1);color:#c05040;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;flex-shrink:0;">清除</button>` : ''}
+      </div>
+
+      <div class="field" style="border-bottom:none;padding-top:0;">
+        <label>显示模式</label>
+        <div class="widget-size-row" style="grid-template-columns:repeat(2,1fr);">
+          <div class="widget-size-item" data-mode="full" style="padding:12px 6px;border-radius:14px;background:var(--bg-2);border:1px solid ${bgMode==='full'?'var(--accent-deep)':'var(--line)'};text-align:center;cursor:pointer;">
+            <div class="ws-label" style="color:${bgMode==='full'?'var(--accent-deep)':'var(--ink-2)'};">全屏模式</div>
+          </div>
+          <div class="widget-size-item" data-mode="half" style="padding:12px 6px;border-radius:14px;background:var(--bg-2);border:1px solid ${bgMode==='half'?'var(--accent-deep)':'var(--line)'};text-align:center;cursor:pointer;">
+            <div class="ws-label" style="color:${bgMode==='half'?'var(--accent-deep)':'var(--ink-2)'};">半屏模式</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>填充方式</label>
+        <div class="widget-size-row" style="grid-template-columns:repeat(2,1fr);">
+          <div class="widget-size-item" data-fit="cover" style="padding:12px 6px;border-radius:14px;background:var(--bg-2);border:1px solid ${bgFit==='cover'?'var(--accent-deep)':'var(--line)'};text-align:center;cursor:pointer;">
+            <div class="ws-label" style="color:${bgFit==='cover'?'var(--accent-deep)':'var(--ink-2)'};">铺满裁切</div>
+          </div>
+          <div class="widget-size-item" data-fit="contain" style="padding:12px 6px;border-radius:14px;background:var(--bg-2);border:1px solid ${bgFit==='contain'?'var(--accent-deep)':'var(--line)'};text-align:center;cursor:pointer;">
+            <div class="ws-label" style="color:${bgFit==='contain'?'var(--accent-deep)':'var(--ink-2)'};">完整显示</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>不透明度 <span id="bgOpacityVal" style="color:var(--accent-deep);font-weight:600;">${Math.round(bgOpacity * 100)}%</span></label>
+        <input type="range" id="bgOpacitySlider" min="0.1" max="1.0" step="0.05" value="${bgOpacity}" style="width:100%;accent-color:var(--accent-deep);margin-top:8px;">
+      </div>
+
+      <div class="edit-actions"><button class="edit-save" id="bgSettingsClose" type="button">完成</button></div>
+    </div>
+  `;
+  modal.classList.add('show');
+  const close = () => { modal.classList.remove('show'); modal.innerHTML = ''; renderMusicMain(); };
+  modal.onclick = (e) => { if (e.target.id === 'widgetConfigModal') close(); };
+  $('#bgSettingsClose').onclick = close;
+
+  $('#bgBtnPick').onclick = () => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;';
+    document.body.appendChild(input);
+    input.onchange = async (e) => {
+      if (document.body.contains(input)) input.remove();
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      try {
+        const url = await fileToDataURL(f, 1200, .85);
+        state.music.userCover = url;
+        save(); close();
+        toast('背景已更新');
+      } catch (err) { toast('导入失败：' + (err.message || err)); }
+    };
+    input.click();
+  };
+
+  const clearBtn = $('#bgBtnClear');
+  if (clearBtn) clearBtn.onclick = () => {
+    state.music.userCover = null;
+    save(); close();
+    toast('已恢复默认背景');
+  };
+
+  modal.querySelectorAll('[data-mode]').forEach(el => {
+    el.onclick = () => {
+      state.music.bgMode = el.dataset.mode;
+      save();
+      modal.querySelectorAll('[data-mode]').forEach(o => {
+        o.style.borderColor = o.dataset.mode === state.music.bgMode ? 'var(--accent-deep)' : 'var(--line)';
+        o.querySelector('.ws-label').style.color = o.dataset.mode === state.music.bgMode ? 'var(--accent-deep)' : 'var(--ink-2)';
+      });
+      const layer = document.querySelector('.music-app-bg-layer');
+      if (layer) {
+        layer.style.height = state.music.bgMode === 'half' ? '300px' : '100%';
+        layer.className = 'music-app-bg-layer ' + (state.music.bgMode === 'half' ? 'half-mode' : 'full-mode');
+      }
+    };
+  });
+
+  modal.querySelectorAll('[data-fit]').forEach(el => {
+    el.onclick = () => {
+      state.music.bgFit = el.dataset.fit;
+      save();
+      modal.querySelectorAll('[data-fit]').forEach(o => {
+        o.style.borderColor = o.dataset.fit === state.music.bgFit ? 'var(--accent-deep)' : 'var(--line)';
+        o.querySelector('.ws-label').style.color = o.dataset.fit === state.music.bgFit ? 'var(--accent-deep)' : 'var(--ink-2)';
+      });
+      const layer = document.querySelector('.music-app-bg-layer');
+      if (layer) layer.style.backgroundSize = state.music.bgFit;
+    };
+  });
+
+  $('#bgOpacitySlider').oninput = (e) => {
+    const val = parseFloat(e.target.value);
+    state.music.bgOpacity = val;
+    $('#bgOpacityVal').textContent = Math.round(val * 100) + '%';
+    const layer = document.querySelector('.music-app-bg-layer');
+    if (layer) layer.style.opacity = val;
+    save();
+  };
 }
 
 function openMusicProfileEditor() {
