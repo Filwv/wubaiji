@@ -2995,6 +2995,263 @@ html,body{
   100% { transform: scale(1); opacity: 1; }
 }
 .gp-animate { animation: gp-pop 0.3s cubic-bezier(.34,1.6,.4,1) forwards; }
+
+/* ===== 音乐主题切换面板 ===== */
+.theme-scroll-wrap {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 4px 4px 16px;
+  margin: 0 -6px;
+  -webkit-overflow-scrolling: touch;
+}
+.theme-scroll-wrap::-webkit-scrollbar { display: none; }
+.theme-card {
+  flex: 0 0 130px;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.theme-card:active { transform: scale(0.96); }
+.theme-card-preview {
+  width: 130px;
+  height: 180px;
+  border-radius: 16px;
+  background: #fff;
+  position: relative;
+  overflow: hidden;
+  border: 2px solid transparent;
+  box-shadow: var(--shadow-1);
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+.theme-card.active .theme-card-preview {
+  border-color: var(--accent-deep);
+  box-shadow: 0 8px 24px -10px rgba(110,125,148,0.4);
+}
+.theme-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+  letter-spacing: 0.5px;
+}
+.theme-card.active .theme-card-name { color: var(--ink); }
+
+/* Lace 预览假象 */
+.preview-lace {
+  background: linear-gradient(180deg, #f4eff0, #faf6f7);
+}
+.preview-lace::before {
+  content: ''; position: absolute; inset: 0;
+  background-image: radial-gradient(circle at 50% 50%, rgba(180,150,175,0.15) 1px, transparent 1.5px);
+  background-size: 8px 8px;
+}
+.preview-lace::after {
+  content: '🎀'; position: absolute; bottom: 20px; right: 20px; font-size: 30px; opacity: 0.4;
+}
+
+/* Comics 预览假象 */
+.preview-comics {
+  background: #f7f7f8;
+}
+.preview-comics::before {
+  content: ''; position: absolute; inset: 12px;
+  border: 1.5px solid #2a2a2a;
+  box-shadow: 3px 3px 0 rgba(42,42,42,0.15);
+}
+.preview-comics::after {
+  content: ''; position: absolute; inset: 12px;
+  background-image: radial-gradient(#2a2a2a 1px, transparent 1.2px);
+  background-size: 6px 6px; opacity: 0.1;
+}
+
+/* Collage 预览假象 */
+.preview-collage {
+  background: #FFF4F5;
+}
+.preview-collage::before {
+  content: ''; position: absolute; top: 24px; left: 16px; right: 16px; height: 60px;
+  background: #D1E3FF; transform: rotate(-2deg); border-radius: 2px;
+}
+.preview-collage::after {
+  content: ''; position: absolute; top: 76px; left: 20px; right: 20px; height: 60px;
+  background: #FAC7DA; transform: rotate(1.5deg); border-radius: 2px;
+  box-shadow: 1px 2px 0 rgba(0,0,0,0.05);
+}
+
+/* ============================================================
+   🌸 主题一：Lace（雾面蕾丝）
+   ============================================================ */
+[data-music-theme="lace"] {
+  --lace-bg: #faf6f7;
+  --lace-bg-glass: rgba(250, 246, 247, 0.75);
+  --lace-pink: #f8dde2;
+  --lace-accent: #b88a9a; /* 褪色玫瑰 */
+  --lace-ink: #3a3238;    /* 暖灰黑 */
+  --lace-ink-2: #8a7a80;
+  background-color: var(--lace-bg) !important;
+}
+
+/* 整体加一层极淡的粉色点阵底纹 */
+[data-music-theme="lace"] .music-main-scroll {
+  background-image: radial-gradient(circle at 50% 50%, rgba(184, 138, 154, 0.05) 1px, transparent 1.5px);
+  background-size: 12px 12px;
+}
+
+/* --- 1. Hero 顶部区域 --- */
+[data-music-theme="lace"] .music-main-hero {
+  background: linear-gradient(180deg, #fdfbfb 0%, var(--lace-bg) 100%);
+  border-bottom: 1px solid rgba(184, 138, 154, 0.1);
+}
+[data-music-theme="lace"] .music-main-hero::after {
+  display: none; /* 去掉原有的白色渐变，改用山茶花 */
+}
+/* 山茶花水印，压在背景里 */
+[data-music-theme="lace"] .music-main-hero-avatar-wrap::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  height: 240px;
+  background-image: url('./assets/lace-flower-white.png');
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.35;
+  filter: grayscale(20%) sepia(10%);
+  pointer-events: none;
+  z-index: 0;
+  animation: lace-flower-breathe 8s ease-in-out infinite;
+}
+@keyframes lace-flower-breathe {
+  0%, 100% { transform: translateX(-50%) scale(1) rotate(0deg); opacity: 0.35; }
+  50% { transform: translateX(-50%) scale(1.05) rotate(3deg); opacity: 0.5; }
+}
+[data-music-theme="lace"] .music-main-hero-avatar {
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 3px rgba(184, 138, 154, 0.15), 0 10px 20px -10px rgba(184, 138, 154, 0.4);
+  position: relative;
+  z-index: 2;
+}
+[data-music-theme="lace"] .music-main-hero-nickname {
+  color: var(--lace-ink);
+  text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+}
+[data-music-theme="lace"] .music-main-stat-num { color: var(--lace-accent); font-family: "Times New Roman", serif; }
+[data-music-theme="lace"] .music-main-stat-label { color: var(--lace-ink-2); }
+
+/* --- 2. 快捷入口区 --- */
+[data-music-theme="lace"] .music-main-quick {
+  background: transparent;
+}
+[data-music-theme="lace"] .music-quick-item {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 1);
+  box-shadow: 0 4px 12px -6px rgba(184, 138, 154, 0.2);
+  border-radius: 16px;
+}
+[data-music-theme="lace"] .music-quick-icon { color: var(--lace-accent); }
+[data-music-theme="lace"] .music-quick-label { color: var(--lace-ink); }
+
+/* --- 3. Tab 栏改造（胶囊底 + 蕾丝分割线） --- */
+[data-music-theme="lace"] .music-main-tabs {
+  background: transparent;
+  border-bottom: none;
+  position: relative;
+  padding-bottom: 6px;
+}
+[data-music-theme="lace"] .music-main-tabs::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 16px;
+  right: 16px;
+  height: 12px;
+  background-image: url('./assets/lace-heart-border.png');
+  background-size: auto 100%;
+  background-position: center;
+  background-repeat: repeat-x;
+  opacity: 0.6;
+  pointer-events: none;
+}
+[data-music-theme="lace"] .music-main-tab {
+  color: var(--lace-ink-2);
+  margin: 0 4px;
+  padding: 8px 0;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+[data-music-theme="lace"] .music-main-tab.active {
+  color: var(--lace-accent);
+  background: rgba(184, 138, 154, 0.08);
+  font-weight: 600;
+}
+[data-music-theme="lace"] .music-main-tab.active::after {
+  display: none; /* 去掉生硬的下划线 */
+}
+
+/* --- 4. 歌单列表（左侧粉色蕾丝修饰） --- */
+[data-music-theme="lace"] .music-main-list {
+  background: transparent;
+}
+[data-music-theme="lace"] .music-main-playlist {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid #ffffff;
+  border-radius: 16px;
+  margin: 0 16px 10px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 20px -12px rgba(184, 138, 154, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+/* 左侧的粉色蕾丝竖条 */
+[data-music-theme="lace"] .music-main-playlist::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  background-image: url('./assets/lace-pink-strip.png');
+  background-size: cover;
+  background-position: left center;
+  opacity: 0.8;
+  pointer-events: none;
+}
+[data-music-theme="lace"] .music-main-playlist-cover {
+  border-radius: 12px;
+  border: 2px solid #fff;
+  box-shadow: 0 4px 10px -4px rgba(0,0,0,0.1);
+  margin-left: 6px; /* 避开左侧蕾丝 */
+}
+[data-music-theme="lace"] .music-main-playlist-name {
+  color: var(--lace-ink);
+  font-weight: 600;
+}
+[data-music-theme="lace"] .music-main-playlist-sub {
+  color: var(--lace-ink-2);
+}
+[data-music-theme="lace"] .music-main-playlist-action {
+  border-color: var(--lace-accent);
+  color: var(--lace-accent);
+}
+[data-music-theme="lace"] .music-main-playlist-action:active {
+  background: var(--lace-pink);
+}
+
+/* 动效开关控制 */
+[data-motion="off"] [data-music-theme="lace"] .music-main-hero-avatar-wrap::before {
+  animation: none !important;
+}
+
 /* ===== 批量导入链接 ===== */
 .url-import-list {
   display: flex;
@@ -3861,7 +4118,14 @@ const state = {
     playHistory: [],
     lastPlayedId: null,
     lastMode: 'loop-all',
-    progress: {} // 👈 新增：播放进度
+    progress: {}, // 播放进度
+    // 👇 新增：主题与外观配置
+    theme: 'lace',        // 'lace' | 'comics' | 'collage'
+    bgMode: 'full',       // 'full' | 'half'
+    bgOpacity: 0.85,      // 0.1 ~ 1.0
+    bgFit: 'cover',       // 'cover' | 'contain'
+    motionEnabled: true,  // 动效开关
+    rainEnabled: false    // 雨滴特效
   },
   podcasts: []
 };
@@ -5707,7 +5971,7 @@ function renderMusicMain() {
     </div>`;
 
   appView.innerHTML = `
-    <div class="music-app">
+    <div class="music-app" data-music-theme="${state.music.theme || 'lace'}" data-motion="${state.music.motionEnabled ? 'on' : 'off'}">
       <div class="music-main-scroll" id="musicMainScroll">
         <div class="music-main-hero" id="musicMainHero" style="${heroStyle}">
           <div class="music-main-hero-top">
@@ -5852,6 +6116,10 @@ function openMusicMainMoreMenu() {
     <div class="widget-panel">
       <h3 class="edit-title">更多</h3>
       <div class="list">
+        <div class="list-item" id="mmmTheme">
+          <div class="li-main"><div class="li-title">换种心情</div><div class="li-sub">当前：${state.music.theme === 'lace' ? 'Lace' : state.music.theme === 'comics' ? 'Comics' : 'Collage'}</div></div>
+          <span class="li-chev">›</span>
+        </div>
         <div class="list-item" id="mmmImportFile">
           <div class="li-main"><div class="li-title">导入歌曲文件</div><div class="li-sub">从设备选择音频文件</div></div>
           <span class="li-chev">›</span>
@@ -5899,11 +6167,62 @@ function openMusicMainMoreMenu() {
   $('#mmmImportUrl').onclick = () => { close(); importMusicFromUrls(); };
   $('#mmmEditProfile').onclick = () => { close(); openMusicProfileEditor(); };
   $('#mmmChangeCover').onclick = () => { close(); pickMusicMainCover(); };
+  
   const clearBtn = $('#mmmClearCover');
   if (clearBtn) clearBtn.onclick = () => {
     state.music.userCover = null;
     save(); close(); renderMusicApp();
     toast('已清除背景');
+  };
+
+  // 绑定「换种心情」点击事件
+  $('#mmmTheme').onclick = () => { close(); openMusicThemePicker(); };
+}
+
+// 👇 新增的主题选择面板函数，紧跟在上面函数的结尾
+function openMusicThemePicker() {
+  const modal = $('#widgetConfigModal');
+  const themes = [
+    { id: 'lace', name: 'Lace' },
+    { id: 'comics', name: 'Comics' },
+    { id: 'collage', name: 'Collage' }
+  ];
+  
+  const cardsHTML = themes.map(t => `
+    <div class="theme-card ${state.music.theme === t.id ? 'active' : ''}" data-theme="${t.id}">
+      <div class="theme-card-preview preview-${t.id}"></div>
+      <div class="theme-card-name">${t.name}</div>
+    </div>
+  `).join('');
+
+  modal.innerHTML = `
+    <div class="widget-panel">
+      <h3 class="edit-title">换种心情</h3>
+      <div class="theme-scroll-wrap" id="themeScrollWrap">
+        ${cardsHTML}
+      </div>
+      <div class="edit-actions">
+        <button class="edit-cancel" id="themeCancel" type="button">取消</button>
+      </div>
+    </div>`;
+  modal.classList.add('show');
+
+  const close = () => { modal.classList.remove('show'); modal.innerHTML = ''; };
+  modal.onclick = (e) => { if (e.target.id === 'widgetConfigModal') close(); };
+  $('#themeCancel').onclick = close;
+
+  $('#themeScrollWrap').onclick = (e) => {
+    const card = e.target.closest('.theme-card');
+    if (!card) return;
+    const newTheme = card.dataset.theme;
+    if (newTheme === state.music.theme) return; 
+    
+    state.music.theme = newTheme;
+    save();
+    close();
+    
+    renderMusicApp();
+    toast(`已切换至 ${themes.find(t => t.id === newTheme).name} 心情`);
   };
 }
 
@@ -12208,7 +12527,13 @@ async function load() {
         playHistory: Array.isArray(s.music.playHistory) ? s.music.playHistory : [],
         lastPlayedId: s.music.lastPlayedId || null,
         lastMode: s.music.lastMode || 'loop-all',
-        progress: (s.music.progress && typeof s.music.progress === 'object') ? s.music.progress : {}
+        progress: (s.music.progress && typeof s.music.progress === 'object') ? s.music.progress : {},
+        theme: s.music.theme || 'lace',
+        bgMode: s.music.bgMode || 'full',
+        bgOpacity: typeof s.music.bgOpacity === 'number' ? s.music.bgOpacity : 0.85,
+        bgFit: s.music.bgFit || 'cover',
+        motionEnabled: typeof s.music.motionEnabled === 'boolean' ? s.music.motionEnabled : true,
+        rainEnabled: !!s.music.rainEnabled
       };
       player.mode = state.music.lastMode || 'loop-all';
     }
