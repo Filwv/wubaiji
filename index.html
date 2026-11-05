@@ -6486,21 +6486,25 @@ function renderMusicMain() {
     if (typeof RaindropFX === 'undefined') {
       toast("❌ 雨滴库未加载");
     } else {
-      // 👇 关键修复 1：延迟 50 毫秒，等页面渲染出宽高再启动雨滴
       setTimeout(() => {
+        // 必须保证有个真实存在的层来挂载 canvas
         const bgLayer = document.querySelector('.music-app-bg-layer');
         if (bgLayer && bgLayer.clientWidth > 0) {
           const canvas = document.createElement('canvas');
           canvas.id = 'rainCanvas';
-          canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;';
+          // 绝对铺满，且 pointer-events:none 保证不影响点击
+          canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;';
           bgLayer.appendChild(canvas);
           
           try {
             const rConfig = state.music.rainConfig || { spawnInterval: 300, raindropSize: 30, blur: 2 };
             
+            // 👇 核心修复：如果有自定义背景就传图，没有就传 1x1 透明图，千万别传 DOM
+            const bgSource = state.music.userCover || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+            
             const rainFx = new RaindropFX({
               canvas: canvas,
-              background: bgLayer, // 👈 关键修复 2：直接传 DOM 元素，让它自己去截取背景尺寸
+              background: bgSource, // 只能是 URL 或 base64
               spawnInterval: [rConfig.spawnInterval, rConfig.spawnInterval + 600],
               raindropSize: [rConfig.raindropSize * 0.5, rConfig.raindropSize],
               blur: rConfig.blur,
@@ -6525,12 +6529,11 @@ function renderMusicMain() {
             console.error("雨滴实例化失败:", err);
           }
         }
-      }, 50);
+      }, 100); // 延迟 100ms 等待 DOM 彻底稳定
     }
   }
 
   renderGlobalPlayer();
-}
 
 function openMusicMainMoreMenu() {
   const modal = $('#widgetConfigModal');
