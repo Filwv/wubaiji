@@ -6483,55 +6483,54 @@ function renderMusicMain() {
   }
 
   if (state.music.theme === 'comics' && state.music.rainEnabled && state.music.motionEnabled) {
-    // 1. 检查库是否加载
     if (typeof RaindropFX === 'undefined') {
-      toast("❌ 雨滴库未加载，请检查 script 路径！");
-      console.error("RaindropFX 库未加载！");
+      toast("❌ 雨滴库未加载");
     } else {
-      const bgLayer = document.querySelector('.music-app-bg-layer');
-      if (bgLayer) {
-        const canvas = document.createElement('canvas');
-        canvas.id = 'rainCanvas';
-        // 注意这里 z-index 设置为 1，确保在背景之上，UI之下
-        canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;';
-        bgLayer.appendChild(canvas);
-        
-        try {
-          const rConfig = state.music.rainConfig || { spawnInterval: 300, raindropSize: 30, blur: 2 };
+      // 👇 关键修复 1：延迟 50 毫秒，等页面渲染出宽高再启动雨滴
+      setTimeout(() => {
+        const bgLayer = document.querySelector('.music-app-bg-layer');
+        if (bgLayer && bgLayer.clientWidth > 0) {
+          const canvas = document.createElement('canvas');
+          canvas.id = 'rainCanvas';
+          canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;';
+          bgLayer.appendChild(canvas);
           
-          const rainFx = new RaindropFX({
-            canvas: canvas,
-            spawnInterval: [rConfig.spawnInterval, rConfig.spawnInterval + 600],
-            raindropSize: [rConfig.raindropSize * 0.5, rConfig.raindropSize],
-            blur: rConfig.blur,
-            refractBase: 1,
-            refractScale: 8
-          });
-          
-          canvas.__raindropFx = rainFx;
-          rainFx.start();
-          toast("🌧️ 雨滴已加载"); // 给你个成功提示
+          try {
+            const rConfig = state.music.rainConfig || { spawnInterval: 300, raindropSize: 30, blur: 2 };
+            
+            const rainFx = new RaindropFX({
+              canvas: canvas,
+              background: bgLayer, // 👈 关键修复 2：直接传 DOM 元素，让它自己去截取背景尺寸
+              spawnInterval: [rConfig.spawnInterval, rConfig.spawnInterval + 600],
+              raindropSize: [rConfig.raindropSize * 0.5, rConfig.raindropSize],
+              blur: rConfig.blur,
+              refractBase: 1,
+              refractScale: 8
+            });
+            
+            canvas.__raindropFx = rainFx;
+            rainFx.start();
+            toast("🌧️ 雨滴已加载");
 
-          window.__rainResizeHandler = () => {
-            const rect = bgLayer.getBoundingClientRect();
-            // 确保宽高大于0才重载
-            if (rect.width > 0 && rect.height > 0) {
-              rainFx.resize(rect.width, rect.height);
-            }
-          };
-          window.__rainResizeHandler();
-          window.addEventListener('resize', window.__rainResizeHandler);
-        } catch (err) {
-          toast("❌ 初始化失败: " + err.message);
-          console.error("雨滴实例化失败:", err);
+            window.__rainResizeHandler = () => {
+              const rect = bgLayer.getBoundingClientRect();
+              if (rect.width > 0 && rect.height > 0) {
+                rainFx.resize(rect.width, rect.height);
+              }
+            };
+            window.__rainResizeHandler();
+            window.addEventListener('resize', window.__rainResizeHandler);
+          } catch (err) {
+            toast("❌ 初始化失败: " + err.message);
+            console.error("雨滴实例化失败:", err);
+          }
         }
-      }
+      }, 50);
     }
   }
 
   renderGlobalPlayer();
 }
-
 
 function openMusicMainMoreMenu() {
   const modal = $('#widgetConfigModal');
