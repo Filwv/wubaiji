@@ -3448,6 +3448,166 @@ html,body{
   color: var(--col-ink-2);
 }
 
+/* ============================================================
+   🌧️ 主题四：Comics（韩系黑白漫画）
+   ============================================================ */
+[data-music-theme="comics"] {
+  --comic-bg: #f7f7f8;
+  --comic-ink: #2a2a2a;
+  --comic-ink-2: #555;
+  --comic-blue: #6b7a8f;
+  --comic-paper: #ffffff;
+  background-color: var(--comic-bg) !important;
+}
+
+/* 漫画网点背景 */
+[data-music-theme="comics"] .music-main-scroll {
+  background-image: radial-gradient(var(--comic-ink) 1px, transparent 1.2px);
+  background-size: 8px 8px;
+  background-position: center;
+}
+/* 用半透明白色柔化网点 */
+[data-music-theme="comics"] .music-main-scroll::before {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(247, 247, 248, 0.85);
+  pointer-events: none; z-index: -1;
+}
+
+/* --- 1. Hero 区（分镜框包裹） --- */
+[data-music-theme="comics"] .music-main-hero {
+  background: transparent;
+  border-bottom: none;
+  padding-bottom: 10px;
+}
+[data-music-theme="comics"] .music-main-hero::after {
+  display: none;
+}
+[data-music-theme="comics"] .music-main-hero-avatar-wrap {
+  position: relative;
+  background: #fff;
+  border: 2px solid var(--comic-ink);
+  box-shadow: 4px 4px 0 rgba(42, 42, 42, 0.15);
+  padding: 16px;
+  border-radius: 2px;
+  transform: rotate(-1deg);
+  width: max-content;
+  margin: 20px auto 0;
+}
+[data-music-theme="comics"] .music-main-hero-avatar {
+  border-radius: 2px;
+  border: 2px solid var(--comic-ink);
+}
+[data-music-theme="comics"] .music-main-hero-nickname {
+  color: var(--comic-ink);
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #fff, 2px 2px 0 rgba(0,0,0,0.1);
+}
+[data-music-theme="comics"] .music-main-stats {
+  gap: 16px;
+}
+[data-music-theme="comics"] .music-main-stat {
+  border: 1.5px solid var(--comic-ink);
+  padding: 4px 10px;
+  background: #fff;
+  border-radius: 2px;
+  box-shadow: 2px 2px 0 rgba(42, 42, 42, 0.15);
+}
+[data-music-theme="comics"] .music-main-stat-num { color: var(--comic-ink); font-family: 'Courier New', monospace; font-weight: 900; }
+[data-music-theme="comics"] .music-main-stat-label { color: var(--comic-ink-2); font-size: 10px; }
+
+/* --- 2. 快捷入口区（错落分镜） --- */
+[data-music-theme="comics"] .music-main-quick {
+  background: transparent;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 16px;
+}
+[data-music-theme="comics"] .music-quick-item {
+  background: #fff;
+  border: 2px solid var(--comic-ink);
+  border-radius: 2px;
+  box-shadow: 4px 4px 0 rgba(42, 42, 42, 0.15);
+  padding: 14px 10px;
+  transition: transform 0.2s;
+}
+[data-music-theme="comics"] .music-quick-item:nth-child(1) { width: 45%; transform: rotate(1.5deg) translateY(4px); }
+[data-music-theme="comics"] .music-quick-item:nth-child(2) { width: 35%; transform: rotate(-2deg) translateY(-8px); margin-top: 10px; }
+[data-music-theme="comics"] .music-quick-item:nth-child(3) { width: 38%; transform: rotate(1deg); margin-left: -10px; }
+[data-music-theme="comics"] .music-quick-item:nth-child(4) { width: 42%; transform: rotate(-1.5deg) translateY(-4px); margin-top: -10px; }
+[data-music-theme="comics"] .music-quick-item:active {
+  transform: scale(0.95) rotate(0deg);
+  box-shadow: 2px 2px 0 rgba(42, 42, 42, 0.15);
+}
+[data-music-theme="comics"] .music-quick-icon { color: var(--comic-ink); }
+[data-music-theme="comics"] .music-quick-label { color: var(--comic-ink); font-weight: 700; }
+
+/* --- 3. Tab 栏 --- */
+[data-music-theme="comics"] .music-main-tabs {
+  background: transparent;
+  border-bottom: 2px solid var(--comic-ink);
+  margin: 0 16px;
+}
+[data-music-theme="comics"] .music-main-tab {
+  color: var(--comic-ink-2);
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+}
+[data-music-theme="comics"] .music-main-tab.active {
+  color: #fff;
+  background: var(--comic-ink);
+  border-radius: 2px 2px 0 0;
+}
+[data-music-theme="comics"] .music-main-tab.active::after {
+  display: none;
+}
+
+/* --- 4. 歌单列表 --- */
+[data-music-theme="comics"] .music-main-list {
+  background: transparent;
+  padding: 16px;
+}
+[data-music-theme="comics"] .music-main-playlist {
+  background: #fff;
+  border: 2px solid var(--comic-ink);
+  border-radius: 2px;
+  box-shadow: 4px 4px 0 rgba(42, 42, 42, 0.15);
+  margin: 0 0 16px 0;
+  padding: 14px;
+  transform: rotate(0.5deg);
+}
+[data-music-theme="comics"] .music-main-playlist:nth-child(even) {
+  transform: rotate(-0.8deg);
+  box-shadow: -4px 4px 0 rgba(42, 42, 42, 0.15);
+}
+[data-music-theme="comics"] .music-main-playlist-cover {
+  border-radius: 2px;
+  border: 1.5px solid var(--comic-ink);
+  box-shadow: none;
+}
+[data-music-theme="comics"] .music-main-playlist-name {
+  color: var(--comic-ink);
+  font-weight: 900;
+}
+[data-music-theme="comics"] .music-main-playlist-sub {
+  color: var(--comic-ink-2);
+  font-family: 'Courier New', monospace;
+}
+[data-music-theme="comics"] .music-main-playlist-action {
+  border-radius: 2px;
+  border: 2px solid var(--comic-ink);
+  color: var(--comic-ink);
+  box-shadow: 2px 2px 0 rgba(42, 42, 42, 0.15);
+}
+[data-music-theme="comics"] .music-main-playlist-action:active {
+  background: var(--comic-ink);
+  color: #fff;
+}
+
 /* ===== 批量导入链接 ===== */
 .url-import-list {
   display: flex;
@@ -6314,6 +6474,63 @@ function renderMusicMain() {
     };
   }
 
+    // ==========================================
+  // 🌧️ 漫画主题专属：雨滴特效 (RaindropFX) 控制逻辑
+  // ==========================================
+  
+  // 1. 每次重绘前，先清理掉旧的雨滴实例，防止叠加和卡顿
+  const oldRainCanvas = document.getElementById('rainCanvas');
+  if (oldRainCanvas) {
+    if (oldRainCanvas.__raindropFx) {
+      try { oldRainCanvas.__raindropFx.destroy(); } catch(e) {}
+    }
+    oldRainCanvas.remove();
+  }
+  if (window.__rainResizeHandler) {
+    window.removeEventListener('resize', window.__rainResizeHandler);
+    window.__rainResizeHandler = null;
+  }
+
+  // 2. 判断条件：Comics主题 + 用户开了雨滴开关 + 用户开了全局动效 + 库文件已加载
+  if (state.music.theme === 'comics' && state.music.rainEnabled && state.music.motionEnabled && typeof RaindropFX !== 'undefined') {
+    const bgLayer = document.querySelector('.music-app-bg-layer');
+    if (bgLayer) {
+      // 创建下雨的 Canvas
+      const canvas = document.createElement('canvas');
+      canvas.id = 'rainCanvas';
+      // 绝对铺满，并且 pointer-events: none 确保手指点击能穿透雨滴点到按钮
+      canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;';
+      bgLayer.appendChild(canvas);
+      
+      try {
+        // 初始化 Raindrop FX
+        const rainFx = new RaindropFX({
+          canvas: canvas,
+          background: 'transparent', // 保持透明，让它像玻璃上的水珠一样折射底层UI
+          blur: 2,                   // 水珠边缘的模糊程度
+          spawnInterval: [300, 900], // 雨滴掉落的频率（毫秒），数字越小雨越密
+          raindropSize: [20, 40],    // 雨滴的大小范围
+          refractBase: 1,
+          refractScale: 8
+        });
+        
+        canvas.__raindropFx = rainFx;
+        rainFx.start();
+        
+        // 处理屏幕尺寸变化（比如旋转手机），让雨滴重新适应尺寸
+        window.__rainResizeHandler = () => {
+          const rect = bgLayer.getBoundingClientRect();
+          rainFx.resize(rect.width, rect.height);
+        };
+        // 立即执行一次适应尺寸
+        window.__rainResizeHandler();
+        window.addEventListener('resize', window.__rainResizeHandler);
+      } catch (err) {
+        console.warn('雨滴特效启动失败:', err);
+      }
+    }
+  }
+
   renderGlobalPlayer();
 }
 
@@ -6466,6 +6683,15 @@ function openMusicBgSettings() {
       </div>
 
       <div class="field" style="border-bottom:.5px solid var(--line);padding-top:0;margin-bottom:10px;">
+      <div class="field" style="border-bottom:.5px solid var(--line);padding-top:0;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:4px;">雨滴特效</div>
+            <div style="font-size:12px;color:var(--ink-3);">仅 Comics 主题生效，屏幕会落下雨滴</div>
+          </div>
+          <div class="switch ${state.music.rainEnabled ? 'on' : ''}" id="bgRainSwitch"></div>
+        </div>
+      </div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
           <div>
             <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:4px;">山茶花动态</div>
@@ -6521,6 +6747,15 @@ function openMusicBgSettings() {
     }
     toast(state.music.flowerEnabled ? '已开启山茶花' : '已关闭山茶花');
   };
+
+  $('#bgRainSwitch').onclick = () => {
+    state.music.rainEnabled = !state.music.rainEnabled;
+    $('#bgRainSwitch').classList.toggle('on', state.music.rainEnabled);
+    save();
+    renderMusicMain(); // 立即刷新主页查看效果
+    toast(state.music.rainEnabled ? '已开启雨滴' : '已关闭雨滴');
+  };
+
   $('#bgSettingsClose').onclick = close;
 
   $('#bgBtnPick').onclick = () => {
@@ -13636,5 +13871,8 @@ function initWaterSplash() {
 }
  
 </script>
+<!-- 假设你把下载的文件重命名为了 raindrop-fx.js 并放在了 assets 文件夹里 -->
+<!-- 如果你直接放在了根目录，就把路径改成 "./raindrop-fx.js" -->
+<script src="./assets/raindrop-fx.js"></script>
 </body>
 </html>
