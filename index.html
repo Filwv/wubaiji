@@ -3060,6 +3060,9 @@ html,body{
 .music-app-bg-layer::after {
   display: none !important; /* 彻底去掉全屏/半屏背景的底部遮罩 */
 }
+[data-music-theme="lace"][data-flower="off"] .music-main-hero-avatar-wrap::before {
+  display: none !important;
+}
 
 /* ============================================================
   🌸 主题一：Lace（雾面蕾丝）
@@ -4318,7 +4321,8 @@ const state = {
     bgOpacity: 0.85,      // 0.1 ~ 1.0
     bgFit: 'cover',       // 'cover' | 'contain'
     motionEnabled: true,  // 动效开关
-    rainEnabled: false    // 雨滴特效
+    rainEnabled: false,   // 雨滴特效
+    flowerEnabled: true   // 山茶花动态开关
   },
   podcasts: []
 };
@@ -6174,7 +6178,7 @@ function renderMusicMain() {
   const bgLayerClass = bgMode === 'half' ? 'half-mode' : 'full-mode';
 
   appView.innerHTML = `
-    <div class="music-app" data-music-theme="${state.music.theme || 'lace'}" data-motion="${state.music.motionEnabled ? 'on' : 'off'}">
+    <div class="music-app" data-music-theme="${state.music.theme || 'lace'}" data-motion="${state.music.motionEnabled ? 'on' : 'off'}" data-flower="${state.music.flowerEnabled ? 'on' : 'off'}">
       <div class="music-app-bg-layer ${bgLayerClass}" style="${bgLayerStyle}"></div>
       <div class="music-main-scroll" id="musicMainScroll">
         <div class="music-main-hero" id="musicMainHero">
@@ -6461,6 +6465,16 @@ function openMusicBgSettings() {
         ${hasCover ? `<button class="btn-ghost" id="bgBtnClear" style="border:none;background:rgba(217,122,122,.1);color:#c05040;padding:8px 14px;font-size:14px;border-radius:11px;cursor:pointer;flex-shrink:0;">清除</button>` : ''}
       </div>
 
+      <div class="field" style="border-bottom:.5px solid var(--line);padding-top:0;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:4px;">山茶花动态</div>
+            <div style="font-size:12px;color:var(--ink-3);">仅 Lace 主题下生效，关闭后回归极简</div>
+          </div>
+          <div class="switch ${state.music.flowerEnabled ? 'on' : ''}" id="bgFlowerSwitch"></div>
+        </div>
+      </div>
+
       <div class="field" style="border-bottom:none;padding-top:0;">
         <label>显示模式</label>
         <div class="widget-size-row" style="grid-template-columns:repeat(2,1fr);">
@@ -6496,6 +6510,17 @@ function openMusicBgSettings() {
   modal.classList.add('show');
   const close = () => { modal.classList.remove('show'); modal.innerHTML = ''; renderMusicMain(); };
   modal.onclick = (e) => { if (e.target.id === 'widgetConfigModal') close(); };
+  $('#bgFlowerSwitch').onclick = () => {
+    state.music.flowerEnabled = !state.music.flowerEnabled;
+    $('#bgFlowerSwitch').classList.toggle('on', state.music.flowerEnabled);
+    save();
+    // 实时更新主页 DOM
+    const musicAppEl = document.querySelector('.music-app');
+    if (musicAppEl) {
+      musicAppEl.dataset.flower = state.music.flowerEnabled ? 'on' : 'off';
+    }
+    toast(state.music.flowerEnabled ? '已开启山茶花' : '已关闭山茶花');
+  };
   $('#bgSettingsClose').onclick = close;
 
   $('#bgBtnPick').onclick = () => {
@@ -12857,7 +12882,8 @@ async function load() {
         bgOpacity: typeof s.music.bgOpacity === 'number' ? s.music.bgOpacity : 0.85,
         bgFit: s.music.bgFit || 'cover',
         motionEnabled: typeof s.music.motionEnabled === 'boolean' ? s.music.motionEnabled : true,
-        rainEnabled: !!s.music.rainEnabled
+        rainEnabled: !!s.music.rainEnabled,
+        flowerEnabled: typeof s.music.flowerEnabled === 'boolean' ? s.music.flowerEnabled : true
       };
       player.mode = state.music.lastMode || 'loop-all';
     }
