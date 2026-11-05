@@ -3053,12 +3053,12 @@ html,body{
   background: transparent !important;
 }
 
-/* ===== 清除原本 Lace 主题头像背后的山茶花（因为有全局背景接管了） ===== */
-[data-music-theme="lace"] .music-main-hero-avatar-wrap::before {
-  display: none !important;
-}
+/* ===== 恢复 Lace 主题的专属山茶花与无遮罩背景 ===== */
 [data-music-theme="lace"] .music-main-hero {
   background: transparent !important;
+}
+.music-app-bg-layer::after {
+  display: none !important; /* 彻底去掉全屏/半屏背景的底部遮罩 */
 }
 
 /* ============================================================
@@ -6164,12 +6164,13 @@ function renderMusicMain() {
     </div>`;
 
   const hasUserCover = !!state.music.userCover;
-  const bgImage = hasUserCover ? state.music.userCover : './assets/lace-flower-white.png';
+  const bgImage = state.music.userCover; // 没有用户背景就是 null
   const bgMode = state.music.bgMode || 'full';
   const bgOpacity = state.music.bgOpacity ?? 0.85;
   const bgFit = state.music.bgFit || 'cover';
   
-  const bgLayerStyle = `background-image:url('${bgImage}'); background-size:${bgFit}; opacity:${bgOpacity}; height:${bgMode === 'half' ? '300px' : '100%'};`;
+  // 如果用户没传背景图，背景层直接为空
+  const bgLayerStyle = bgImage ? `background-image:url('${bgImage}'); background-size:${bgFit}; opacity:${bgOpacity}; height:${bgMode === 'half' ? '300px' : '100%'};` : 'display:none;';
   const bgLayerClass = bgMode === 'half' ? 'half-mode' : 'full-mode';
 
   appView.innerHTML = `
