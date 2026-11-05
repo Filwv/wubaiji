@@ -3462,15 +3462,7 @@ html,body{
 
 /* 漫画网点背景 */
 [data-music-theme="comics"] .music-main-scroll {
-  background-image: radial-gradient(var(--comic-ink) 1px, transparent 1.2px);
-  background-size: 8px 8px;
-  background-position: center;
-}
-/* 用半透明白色柔化网点 */
-[data-music-theme="comics"] .music-main-scroll::before {
-  content: ''; position: absolute; inset: 0;
-  background: rgba(247, 247, 248, 0.85);
-  pointer-events: none; z-index: -1;
+  background-image: none !important; /* 去掉网点，让用户的背景图完全透出来 */
 }
 
 /* --- 1. Hero 区（分镜框包裹） --- */
@@ -4482,7 +4474,8 @@ const state = {
     bgFit: 'cover',       // 'cover' | 'contain'
     motionEnabled: true,  // 动效开关
     rainEnabled: false,   // 雨滴特效
-    flowerEnabled: true   // 山茶花动态开关
+    flowerEnabled: true,  // 山茶花动态开关
+    rainConfig: { spawnInterval: 300, raindropSize: 30, blur: 2 } // 👈 新增：雨滴参数
   },
   podcasts: []
 };
@@ -6474,11 +6467,12 @@ function renderMusicMain() {
     };
   }
 
-    // ==========================================
+  // ==========================================
   // 🌧️ 漫画主题专属：雨滴特效 (RaindropFX) 控制逻辑
   // ==========================================
+  console.log("尝试启动雨滴 - 主题:", state.music.theme, "开关:", state.music.rainEnabled, "库是否存在:", typeof RaindropFX !== 'undefined');
   
-  // 1. 每次重绘前，先清理掉旧的雨滴实例，防止叠加和卡顿
+  // 1. 每次重绘前清理旧的雨滴实例
   const oldRainCanvas = document.getElementById('rainCanvas');
   if (oldRainCanvas) {
     if (oldRainCanvas.__raindropFx) {
@@ -6491,42 +6485,45 @@ function renderMusicMain() {
     window.__rainResizeHandler = null;
   }
 
-  // 2. 判断条件：Comics主题 + 用户开了雨滴开关 + 用户开了全局动效 + 库文件已加载
-  if (state.music.theme === 'comics' && state.music.rainEnabled && state.music.motionEnabled && typeof RaindropFX !== 'undefined') {
-    const bgLayer = document.querySelector('.music-app-bg-layer');
-    if (bgLayer) {
-      // 创建下雨的 Canvas
-      const canvas = document.createElement('canvas');
-      canvas.id = 'rainCanvas';
-      // 绝对铺满，并且 pointer-events: none 确保手指点击能穿透雨滴点到按钮
-      canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;';
-      bgLayer.appendChild(canvas);
-      
-      try {
-        // 初始化 Raindrop FX
-        const rainFx = new RaindropFX({
-          canvas: canvas,
-          background: 'transparent', // 保持透明，让它像玻璃上的水珠一样折射底层UI
-          blur: 2,                   // 水珠边缘的模糊程度
-          spawnInterval: [300, 900], // 雨滴掉落的频率（毫秒），数字越小雨越密
-          raindropSize: [20, 40],    // 雨滴的大小范围
-          refractBase: 1,
-          refractScale: 8
-        });
+  // 2. 判断是否启动雨滴
+  if (state.music.theme === 'comics' && state.music.rainEnabled && state.music.motionEnabled) {
+    if (typeof RaindropFX === 'undefined') {
+      console.error("❌ RaindropFX 库未加载，请检查 script 标签路径！");
+    } else {
+      const bgLayer = document.querySelector('.music-app-bg-layer') || document.querySelector('.music-main-scroll');
+      if (bgLayer) {
+        const canvas = document.createElement('canvas');
+        canvas.id = 'rainCanvas';
+        // 注意这里加了 z-index: 0，确保它不会盖住文字内容
+        canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;'; 
+        bgLayer.appendChild(canvas);
         
-        canvas.__raindropFx = rainFx;
-        rainFx.start();
-        
-        // 处理屏幕尺寸变化（比如旋转手机），让雨滴重新适应尺寸
-        window.__rainResizeHandler = () => {
-          const rect = bgLayer.getBoundingClientRect();
-          rainFx.resize(rect.width, rect.height);
-        };
-        // 立即执行一次适应尺寸
-        window.__rainResizeHandler();
-        window.addEventListener('resize', window.__rainResizeHandler);
-      } catch (err) {
-        console.warn('雨滴特效启动失败:', err);
+        try {
+          // 读取用户配置，如果没有就用默认值
+          const rConfig = state.music.rainConfig || { spawnInterval: 300, raindropSize: 30, blur: 2 };
+          
+          const rainFx = new RaindropFX({
+            canvas: canvas,
+            spawnInterval: [rConfig.spawnInterval, rConfig.spawnInterval + 600],
+            raindropSize: [rConfig.raindropSize * 0.5, rConfig.raindropSize],
+            blur: rConfig.blur,
+            refractBase: 1,
+            refractScale: 8
+          });
+          
+          canvas.__raindropFx = rainFx;
+          rainFx.start();
+          console.log("✅ 雨滴特效已启动！");
+
+          window.__rainResizeHandler = () => {
+            const rect = bgLayer.getBoundingClientRect();
+            rainFx.resize(rect.width, rect.height);
+          };
+          window.__rainResizeHandler();
+          window.addEventListener('resize', window.__rainResizeHandler);
+        } catch (err) {
+          console.error("❌ 雨滴实例化失败:", err);
+        }
       }
     }
   }
@@ -6692,6 +6689,21 @@ function openMusicBgSettings() {
           <div class="switch ${state.music.rainEnabled ? 'on' : ''}" id="bgRainSwitch"></div>
         </div>
       </div>
+
+      ${state.music.rainEnabled ? `
+      <div class="field" style="padding-top:10px;">
+        <label>雨滴密度 <span id="rainIntervalVal" style="color:var(--accent-deep);font-weight:600;">${Math.round(1000 / (state.music.rainConfig?.spawnInterval || 300))} 滴/秒</span></label>
+        <input type="range" id="rainIntervalSlider" min="100" max="1500" step="50" value="${state.music.rainConfig?.spawnInterval || 300}" style="width:100%;accent-color:var(--accent-deep);margin-top:8px; transform: scaleX(-1);">
+      </div>
+      <div class="field">
+        <label>雨滴大小 <span id="rainSizeVal" style="color:var(--accent-deep);font-weight:600;">${state.music.rainConfig?.raindropSize || 30}px</span></label>
+        <input type="range" id="rainSizeSlider" min="10" max="80" step="2" value="${state.music.rainConfig?.raindropSize || 30}" style="width:100%;accent-color:var(--accent-deep);margin-top:8px;">
+      </div>
+      <div class="field">
+        <label>玻璃模糊度 <span id="rainBlurVal" style="color:var(--accent-deep);font-weight:600;">${state.music.rainConfig?.blur || 2}</span></label>
+        <input type="range" id="rainBlurSlider" min="0" max="10" step="0.5" value="${state.music.rainConfig?.blur || 2}" style="width:100%;accent-color:var(--accent-deep);margin-top:8px;">
+      </div>
+      ` : ''}
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
           <div>
             <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:4px;">山茶花动态</div>
@@ -6755,6 +6767,36 @@ function openMusicBgSettings() {
     renderMusicMain(); // 立即刷新主页查看效果
     toast(state.music.rainEnabled ? '已开启雨滴' : '已关闭雨滴');
   };
+
+  // 👇 加在这里：绑定三个滑块的拖拽事件
+  if ($('#rainIntervalSlider')) {
+    $('#rainIntervalSlider').oninput = (e) => {
+      const val = parseInt(e.target.value);
+      if (!state.music.rainConfig) state.music.rainConfig = {};
+      state.music.rainConfig.spawnInterval = val;
+      $('#rainIntervalVal').textContent = Math.round(1000 / val) + ' 滴/秒';
+      save();
+    };
+    $('#rainIntervalSlider').onchange = () => { renderMusicMain(); }; // 松手后刷新特效
+    
+    $('#rainSizeSlider').oninput = (e) => {
+      const val = parseInt(e.target.value);
+      if (!state.music.rainConfig) state.music.rainConfig = {};
+      state.music.rainConfig.raindropSize = val;
+      $('#rainSizeVal').textContent = val + 'px';
+      save();
+    };
+    $('#rainSizeSlider').onchange = () => { renderMusicMain(); };
+    
+    $('#rainBlurSlider').oninput = (e) => {
+      const val = parseFloat(e.target.value);
+      if (!state.music.rainConfig) state.music.rainConfig = {};
+      state.music.rainConfig.blur = val;
+      $('#rainBlurVal').textContent = val;
+      save();
+    };
+    $('#rainBlurSlider').onchange = () => { renderMusicMain(); };
+  }
 
   $('#bgSettingsClose').onclick = close;
 
@@ -13118,7 +13160,8 @@ async function load() {
         bgFit: s.music.bgFit || 'cover',
         motionEnabled: typeof s.music.motionEnabled === 'boolean' ? s.music.motionEnabled : true,
         rainEnabled: !!s.music.rainEnabled,
-        flowerEnabled: typeof s.music.flowerEnabled === 'boolean' ? s.music.flowerEnabled : true
+        flowerEnabled: typeof s.music.flowerEnabled === 'boolean' ? s.music.flowerEnabled : true,
+        rainConfig: s.music.rainConfig || { spawnInterval: 300, raindropSize: 30, blur: 2 } // 👈 新增兼容
       };
       player.mode = state.music.lastMode || 'loop-all';
     }
