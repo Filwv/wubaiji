@@ -2804,15 +2804,18 @@ html,body{
 .lrc-preview.show{display:block;}
 
 @media (max-width:440px),(max-height:900px){
-  /* ★ 1. 最外层容器统一使用 100vh，彻底解决 iOS PWA 底部白边 */
-  html, body { height: 100vh; width: 100vw; margin: 0; padding: 0; overflow: hidden; }
+  /* ★ 1. 最外层容器统一使用真实可视高度（var(--app-h)）
+     原为 100vh：在 iOS PWA 下会短于物理屏幕 → 底部白边；
+     在普通浏览器下又会含地址栏高度 → 底部被裁。
+     现统一交给 --app-h：PWA 模式=100vh，浏览器=visualViewport 实测值。 */
+  html, body { height: var(--app-h); width: 100vw; margin: 0; padding: 0; overflow: hidden; }
   :root{--dock-bottom: calc(20px + env(safe-area-inset-bottom,0px));}
   body { align-items: stretch; background: #fff; }
   
-  .phone { width: 100vw; height: 100vh; border-radius: 0; padding: 0; box-shadow: none; background: transparent; }
+  .phone { width: 100vw; height: var(--app-h); border-radius: 0; padding: 0; box-shadow: none; background: transparent; }
   
   /* ★ 2. .screen 不要加 padding，让它彻底铺满 */
-  .screen { border-radius: 0; height: 100vh; padding: 0; }
+  .screen { border-radius: 0; height: 100%; padding: 0; }
   
   .dynamic-island { display: none; }
   .statusbar { display: none !important; }
@@ -3875,46 +3878,58 @@ html,body{
   color: #c05040;
 }
 /* ============================================================
-   ★★★ 屏幕适配补丁（覆盖式追加，不修改任何原有规则）★★★
-   解决问题：
-   1. 100vh 在浏览器（有地址栏）时大于真实可视区 → 底部被裁
-   2. 图标行高写死 → 窗口变矮时小组件被遮挡
-   3. dock 与 viewport 底部数值打架 → 重叠
+   ★★★ 屏幕适配 v2（修正版）★★★
+   v1 的问题：统一用 dvh 导致 iOS PWA 底部白边；
+             统一压缩行高导致安卓上明信片文字被挤。
+   v2 策略：
+     - PWA 独立模式 → 100vh（铺到物理屏幕底部，消除白边）
+     - 普通浏览器   → 100dvh + JS 真实高度（避开地址栏）
+     - 组件内容随容器等比缩放（不再挤压文字）
    ============================================================ */
 :root{
-  --app-h: 100vh;              /* JS 会用真实可视高度覆盖 */
+  --app-h: 100dvh;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
+  --bar-h: 44px;               /* 顶栏（下拉回锁屏按钮）占用高度 */
 }
-@supports (height: 100dvh){
-  :root{ --app-h: 100dvh; }    /* 支持 dvh 时优先，自动跟随地址栏 */
+@supports not (height: 100dvh){
+  :root{ --app-h: 100vh; }
 }
-/* 真实可视高度：避免移动浏览器地址栏把内容顶出屏幕 */
+/* ★ 关键：PWA 独立模式改用 100vh，铺满到屏幕物理底部，消除 iOS 白边 */
+@media all and (display-mode: standalone){
+  :root{ --app-h: 100vh; }
+}
+@media all and (display-mode: fullscreen){
+  :root{ --app-h: 100vh; }
+}
+
 html, body{
   height: var(--app-h);
   min-height: var(--app-h);
   max-height: var(--app-h);
   overscroll-behavior: none;
   -webkit-overflow-scrolling: auto;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
+
 /* ---------- 桌面/大窗口：保持设计尺寸，窗口不够时整体等比缩放 ---------- */
 @media (min-width: 441px){
-  body{
-    align-items: center;
-    justify-content: center;
-  }
+  body{ align-items: center; justify-content: center; }
   .phone{
     flex: 0 0 auto;
     width: 393px;
     height: 852px;
     max-height: calc(var(--app-h) - 24px);
-    /* 窗口太矮时按比例缩小，绝不压缩内部布局 */
     transform-origin: center center;
     transform: scale(var(--phone-scale, 1));
   }
 }
-/* ---------- 手机窄屏 / 矮窗口（含普通浏览器）---------- */
-@media (max-width: 440px), (max-height: 900px){
+
+/* ---------- 手机窄屏 / 触屏矮窗口（普通浏览器与 PWA 都走这里）----------
+   注意：宽屏桌面窗口即使高度不足 900px 也不该变成满屏，所以矮窗口
+   这一支额外要求粗指针（触屏），避免把桌面浏览器误判成手机。 */
+@media (max-width: 440px), (max-height: 900px) and (pointer: coarse){
   html, body{ height: var(--app-h); }
   .phone{
     width: 100vw;
@@ -3927,32 +3942,71 @@ html, body{
     background: transparent;
   }
   .screen{ height: 100%; border-radius: 0; padding: 0; }
-  /* ★ dock 与图标区不再打架：按 dock 实际占用高度动态留白 */
+
+  /* ★ 顶栏与图标区不再重叠：给下拉按钮留出独立高度 */
+  .to-lock-btn{
+    top: calc(8px + var(--safe-t));
+  }
   .home-pages-viewport{
-    top: calc(52px + var(--safe-t));
+    top: calc(var(--bar-h) + var(--safe-t) + 14px);
     bottom: calc(var(--dock-bottom) + var(--dock-height) + 26px);
   }
   .home-dots{
     bottom: calc(var(--dock-bottom) + var(--dock-height) + 10px);
   }
+
   /* 锁屏：给状态栏 / 灵动岛让位 */
-  .lock-content{
-    margin-top: calc(96px + var(--safe-t));
-  }
-  .lock-bottom{
-    padding-bottom: calc(36px + var(--safe-b));
-  }
-  .app-header{ padding-top: calc(56px + var(--safe-t)); }
+  .lock-content{ margin-top: calc(92px + var(--safe-t)); }
+  .lock-bottom{ padding-bottom: calc(36px + var(--safe-b)); }
+
+  .app-header{ padding-top: calc(52px + var(--safe-t)); }
   .composer{ padding-bottom: calc(18px + var(--safe-b)); }
   .music-player-actions{ padding-bottom: calc(24px + var(--safe-b)); }
 }
-/* 极矮窗口（横屏手机、小窗）：进一步压缩图标行，保证一屏内 6 行完整可见 */
+
+/* ============================================================
+   ★ 组件内容自适应容器（修复"明信片文字被挤压"）
+   ------------------------------------------------------------
+   病因：明信片是 2x2 格子，矮窗口下 getRowHeight() 把行高压到 66px，
+        卡片高度从 194px 缩到 ~142px，但头像/字号仍是固定 78px/16px，
+        内容总高超出卡片 → 文字被挤成两条叠在一起。
+   方案：用容器查询单位（cqh/cqw）让内容随卡片等比缩放，
+        卡片大时就是原尺寸（min() 上限锁死），卡片小时自动缩小。
+        旧浏览器不支持 container-type，会自动退回原固定值。
+   ============================================================ */
+.widget-postcard{ container-type: size; }
+@supports (container-type: size){
+  /* 头像 ≤ 卡片高的 38%，且不超过原设计 78px */
+  .pc-content{ padding: min(14px, 7cqh) min(12px, 5cqw); gap: 0; }
+  .pc-avatar{
+    width: min(78px, 38cqh);
+    height: min(78px, 38cqh);
+    font-size: min(26px, 13cqh);
+    border-width: min(4px, 2.2cqh);
+  }
+  .pc-name{
+    font-size: min(16px, 11cqh);
+    margin-top: min(10px, 5cqh);
+    line-height: 1.25;
+  }
+  .pc-sign{
+    font-size: min(12px, 8cqh);
+    margin-top: min(4px, 2cqh);
+    line-height: 1.3;
+  }
+}
+/* 兜底：只在对齐方向裁切，不再裁掉头像描边的外发光 */
+.pc-content{ overflow: hidden; }
+.pc-name, .pc-sign{ flex-shrink: 0; min-width: 0; }
+
+/* 其它小组件同样避免溢出 */
+.widget-inner{ overflow: hidden; }
+.widget-dialogue .dlg-stack{ overflow: hidden; }
+
+/* 极矮窗口（横屏手机、小窗）：只压版面留白，不压内容字号 */
 @media (max-height: 700px){
   .lock-time{ font-size: 64px !important; }
-  .home-item-app .glyph{ width: 50px; height: 50px; }
-  .dock .app-icon .glyph{ width: 46px; height: 46px; }
 }
-html, body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 </style>
 </head>
 <body>
@@ -5703,16 +5757,37 @@ async function testFontLoad(fontFamily) {
    3) 尺寸变化后重算图标网格，避免小组件被遮挡
    ============================================================ */
 let _vpRaf = null;
+/* ★ 是否运行在 PWA 独立模式（添加到主屏）或全屏模式 */
+function isStandaloneMode() {
+  try {
+    if (window.matchMedia &&
+        (window.matchMedia('(display-mode: standalone)').matches ||
+         window.matchMedia('(display-mode: fullscreen)').matches)) {
+      return true;
+    }
+  } catch (_) {}
+  return window.navigator.standalone === true;
+}
 function applyViewportHeight() {
   const root = document.documentElement;
+  const standalone = isStandaloneMode();
   let h = 0;
-  // visualViewport 最准（跟随地址栏收起/展开）
-  if (window.visualViewport && window.visualViewport.height) {
-    h = window.visualViewport.height;
+  if (standalone) {
+    /* ★ PWA 独立模式：不写 inline 值，交给 CSS 的 100vh。
+       原因：inline style 优先级高于 media query，一旦写入 px 值就会
+       覆盖掉 standalone 的 100vh 规则，底部白边会照旧出现。 */
+    root.style.removeProperty('--app-h');
+    h = window.innerHeight || root.clientHeight || 0;
+  } else {
+    // 普通浏览器：visualViewport 最准（跟随地址栏收起/展开）
+    if (window.visualViewport && window.visualViewport.height) {
+      h = window.visualViewport.height;
+    }
+    if (!h) h = window.innerHeight || root.clientHeight || 0;
+    if (!h) return;
+    root.style.setProperty('--app-h', h + 'px');
   }
-  if (!h) h = window.innerHeight || root.clientHeight || 0;
   if (!h) return;
-  root.style.setProperty('--app-h', h + 'px');
 
   // 桌面宽窗口：按比例缩放整台手机，避免被裁
   const w = window.innerWidth || root.clientWidth || 0;
@@ -14771,10 +14846,33 @@ function initWaterSplash() {
 
   const W = window.innerWidth;
   const H = window.innerHeight;
-  const S = Math.min(2, window.devicePixelRatio || 2);
+  /* ★★★ 性能分级（修复安卓开屏水波纹滑动极慢）★★★
+     三个真实瓶颈，全部与设备性能强相关：
+       1) 片元着色器每像素约 15 次纹理采样，S=2 时单帧 1500 万次以上，
+          安卓 GPU 填充率吃不下 → 滑动严重滞后于手指
+       2) 每帧重复上传 4 张纹理，其中文字层是 2 倍分辨率，内容却永不变
+       3) dab() 在每像素上算 2 次 Math.sin，一次拖动几十万次
+     策略：安卓 → low（S=1 / 30fps / 遮罩半分辨率 / 单步物理）
+           触屏中端 → mid        桌面与 iOS → high（保留原画质）
+     画质影响仅为轻微变软，交互跟手度显著提升。 */
+  const _ua = navigator.userAgent || '';
+  const _isAndroid = /Android/i.test(_ua);
+  const _cores = navigator.hardwareConcurrency || 4;
+  const _coarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  const _TIER = _isAndroid ? 'low' : (_coarse ? (_cores <= 4 ? 'mid' : 'high') : 'high');
+  /* ★ 关键：物理步数 × 帧率 决定波的传播速度与阻尼衰减速度。
+     原版是 60fps × 2 步 = 每秒钟推进 120 步。
+     三档都锁定 120 步/秒，保证手感与阻尼和原版完全一致，
+     否则低端机虽然不卡了，水波却会明显变"慢半拍"。 */
+  const _Q = _TIER === 'low'
+    ? { S: 1,    MS: 0.5, NX: 88,  STEP: 4, FPS: 30, MAXR: 26, DSTEP: 6, MAXDAB: 10 }
+    : _TIER === 'mid'
+    ? { S: 1.25, MS: 0.6, NX: 108, STEP: 3, FPS: 40, MAXR: 30, DSTEP: 4, MAXDAB: 14 }
+    : { S: 2,    MS: 1,   NX: 130, STEP: 2, FPS: 60, MAXR: 35, DSTEP: 3, MAXDAB: 18 };
+  const S = Math.min(_Q.S, window.devicePixelRatio || 2);
   
-  // 水波物理网格分辨率
-  const NX = 130, NY = Math.round(NX * H / W), COUNT = NX * NY;
+  // 水波物理网格分辨率（按性能分级）
+  const NX = _Q.NX, NY = Math.max(8, Math.round(NX * H / W)), COUNT = NX * NY;
   
   canvas.width = W * S;
   canvas.height = H * S;
@@ -14787,15 +14885,17 @@ function initWaterSplash() {
   const tctx = textCanvas.getContext('2d');
   tctx.scale(S, S);
 
-  // 雾气遮罩层 (存放擦除状态)
-  const maskCanvas = make(W, H);
+  // 雾气遮罩层（按性能分级分辨率，低端设备减半 → 内存与每帧开销降到 1/4）
+  const MW = Math.max(1, Math.round(W * _Q.MS));
+  const MH = Math.max(1, Math.round(H * _Q.MS));
+  const maskCanvas = make(MW, MH);
   const mctx = maskCanvas.getContext('2d');
-  const maskData = mctx.createImageData(W, H);
-  const amount = new Float32Array(W * H); // 记录每个像素的擦除程度 (0-1)
-  const times = new Float64Array(W * H);  // 记录每个像素被擦除的时间
-  
+  const maskData = mctx.createImageData(MW, MH);
+  const amount = new Float32Array(MW * MH); // 记录每个像素的擦除程度 (0-1)
+  const times = new Float64Array(MW * MH);  // 记录每个像素被擦除的时间
+
   // 初始化全白雾气
-  for (let i = 0; i < W * H; i++) {
+  for (let i = 0; i < MW * MH; i++) {
     maskData.data[i * 4] = 255;
     maskData.data[i * 4 + 1] = 255;
     maskData.data[i * 4 + 2] = 255;
@@ -14869,16 +14969,22 @@ function initWaterSplash() {
   function dab(p, r, angle, now, power) {
     const ca = Math.cos(angle), sa = Math.sin(angle);
     const rr = r * (0.96 + 0.04 * Math.sin(p.x * 0.07 + p.y * 0.019));
-    for (let y = Math.max(0, Math.floor(p.y - rr)); y < Math.min(H, p.y + rr); y++)
-      for (let x = Math.max(0, Math.floor(p.x - rr)); x < Math.min(W, p.x + rr); x++) {
-        const dx = x - p.x, dy = y - p.y;
+    /* ★ 原版在每个像素上算 2 次 Math.sin，一次快速拖动可达数十万次调用，
+       这是安卓卡顿的第三大来源。改成整数哈希，视觉上几乎无差别。 */
+    const px = p.x * _Q.MS, py = p.y * _Q.MS, pr = rr * _Q.MS;
+    const y0 = Math.max(0, Math.floor(py - pr)), y1 = Math.min(MH, py + pr);
+    const x0 = Math.max(0, Math.floor(px - pr)), x1 = Math.min(MW, px + pr);
+    for (let y = y0; y < y1; y++)
+      for (let x = x0; x < x1; x++) {
+        const dx = x - px, dy = y - py;
         const cross = -dx * sa + dy * ca, along = dx * ca + dy * sa;
-        const d = Math.sqrt((along * along * 0.9 + cross * cross) / (rr * rr));
+        const d = Math.sqrt((along * along * 0.9 + cross * cross) / (pr * pr));
         if (d >= 1) continue;
         const feather = Math.max(0, Math.min(1, (1 - d) / 0.21));
-        const variation = 0.72 + 0.15 * Math.sin(x * 0.073 + y * 0.031) + 0.1 * Math.sin(x * 0.041 - y * 0.063);
+        const hs = (x * 73856093) ^ (y * 19349663);
+        const variation = 0.72 + 0.15 * (((hs >>> 3) % 100) / 100 - 0.5) + 0.1 * (((hs >>> 11) % 100) / 100 - 0.5);
         const deposit = feather * variation * power;
-        const i = y * W + x;
+        const i = y * MW + x;
         const old = amount[i];
         amount[i] = 1 - (1 - old) * (1 - deposit);
         times[i] = now;
@@ -14897,11 +15003,13 @@ function initWaterSplash() {
     const distance = Math.hypot(b.x - a.x, b.y - a.y);
     const dt = Math.max(8, now - lastMove);
     const speed = distance / dt * 1000;
-    const target = Math.max(14, Math.min(35, 35 - speed * 0.026));
+    const target = Math.max(14, Math.min(_Q.MAXR, _Q.MAXR - speed * 0.026));
     const oldRadius = radius;
     radius += (target - radius) * 0.35;
     const angle = Math.atan2(b.y - a.y, b.x - a.x);
-    const n = Math.max(1, Math.ceil(distance / 3));
+    /* ★ 采样数上限：一次快速甩动原本会生成上百个采样批次，
+       低端安卓单帧内做不完，全部堆到下一帧 → 手划过去了水纹才慢慢跟上 */
+    const n = Math.min(_Q.MAXDAB, Math.max(1, Math.ceil(distance / _Q.DSTEP)));
     
     for (let i = 1; i <= n; i++) {
       const t = i / n;
@@ -14978,12 +15086,22 @@ function initWaterSplash() {
   gl.viewport(0, 0, canvas.width, canvas.height);
 
   // 6. 物理渲染循环
-  let lastFrame = 0;
+  let lastFrame = 0, lastDraw = 0;
+  let photoUploaded = false, textUploaded = false;
+  const FRAME_MS = 1000 / _Q.FPS;
+
   function frame(now) {
+    /* ★ 开屏已退场（节点被移除）→ 直接停掉整个循环，不再空转，
+       否则开屏结束后仍在跑物理与纹理上传，白白吃掉 CPU/GPU。 */
+    if (!canvas.isConnected) return;
     requestAnimationFrame(frame);
-    
-    // 水波物理方程
-    for (let step = 0; step < 2; step++) {
+
+    /* ★ 限帧：低端安卓不必跑满 60fps，稳定 30fps 明显比抖动 15fps 跟手 */
+    if (now - lastDraw < FRAME_MS - 2) return;
+    lastDraw = now;
+
+    // 水波物理方程（步数按分级折算，保证每秒推进速度与高配一致）
+    for (let step = 0; step < _Q.STEP; step++) {
       for (let y = 1; y < NY - 1; y++) for (let x = 1; x < NX - 1; x++) {
         const i = y * NX + x, h = height[i];
         const lap = height[i - 1] + height[i + 1] + height[i - NX] + height[i + NX] - 4 * h;
@@ -15017,11 +15135,19 @@ function initWaterSplash() {
       mctx.putImageData(maskData, 0, 0);
     }
 
-    // 更新纹理
-    if (img.complete) {
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, textures[0]); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    /* ★ 背景图与文字层内容永不变化，原来每帧重复上传（文字层还是 2 倍
+       分辨率，单帧约 6MB）是安卓卡顿的主要来源之一。改为只上传一次。 */
+    if (!photoUploaded && img.complete && img.naturalWidth) {
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, textures[0]);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+      photoUploaded = true;
     }
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, textures[1]); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
+    if (!textUploaded) {
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, textures[1]);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
+      textUploaded = true;
+    }
+    // 只有会变化的遮罩层与水波层需要逐帧上传
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, textures[2]); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskCanvas);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, textures[3]); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, waterCanvas);
 
@@ -15030,6 +15156,12 @@ function initWaterSplash() {
 
   img.onload = () => { drawTexts(); requestAnimationFrame(frame); };
   img.onerror = () => { drawTexts(); requestAnimationFrame(frame); };
+  /* 网络字体到位后重绘一次文字层，避免首屏用回退字体 */
+  try {
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => { drawTexts(); textUploaded = false; });
+    }
+  } catch (_) {}
 }
  
 </script>
