@@ -108,22 +108,160 @@ html,body{
   transition:opacity .5s ease,transform .5s ease,filter .5s ease;
 }
 .lockscreen.hidden{opacity:0;transform:scale(1.06);filter:blur(8px);pointer-events:none;}
+/* ============================================================
+   ★★★ 锁屏美化（iOS 26 风格：超粗大时间是主角）★★★
+   ============================================================ */
 .lock-wall{
   position:absolute;inset:0;
-  background: var(--bg-2);
+  background: linear-gradient(170deg,#f8f6f9 0%,#f1eef4 46%,#eae6ef 100%);
   background-size:cover;background-position:center;
   transition:background-image .35s ease;
 }
-.lock-content{
-  position:relative;margin-top:104px;text-align:center;color:var(--ink);
-  z-index:2;
+/* 壁纸上叠加柔光，保证任何照片上文字都能读清 */
+.lock-veil{
+  position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.42) 0%, rgba(255,255,255,0) 58%),
+    radial-gradient(100% 60% at 50% 100%, rgba(255,255,255,.30) 0%, rgba(255,255,255,0) 55%);
 }
-.lock-date{font-size:16px;font-weight:500;letter-spacing:.4px;opacity:.75;margin-bottom:6px;}
-.lock-time{font-size:88px;font-weight:250;line-height:1.02;letter-spacing:-4px;font-variant-numeric:tabular-nums;color:var(--ink);}
+.lockscreen.has-photo .lock-veil{
+  background:
+    linear-gradient(180deg, rgba(10,10,16,.34) 0%, rgba(10,10,16,.06) 30%, rgba(10,10,16,.10) 68%, rgba(10,10,16,.46) 100%);
+}
+/* ---- 手绘装饰层 ---- */
+.lock-doodle{
+  position:absolute;inset:0;z-index:1;pointer-events:none;
+  overflow:hidden;
+}
+.lock-doodle svg{position:absolute;display:block;}
+.doodle-star-1{top:13%;left:9%;width:22px;opacity:.42;animation:twinkleA 4.2s ease-in-out infinite;}
+.doodle-star-2{top:22%;right:11%;width:15px;opacity:.34;animation:twinkleB 5.4s ease-in-out infinite;}
+.doodle-star-3{top:38%;left:15%;width:11px;opacity:.28;animation:twinkleA 6.1s ease-in-out infinite .8s;}
+.doodle-moon{top:9%;right:8%;width:34px;opacity:.30;animation:driftY 9s ease-in-out infinite;}
+.doodle-cloud{top:29%;right:6%;width:62px;opacity:.20;animation:driftX 13s ease-in-out infinite;}
+.doodle-cloud-2{top:46%;left:6%;width:48px;opacity:.16;animation:driftX 16s ease-in-out infinite reverse;}
+.doodle-leaf{bottom:31%;left:8%;width:30px;opacity:.22;animation:sway 7s ease-in-out infinite;}
+@keyframes twinkleA{0%,100%{opacity:.16;transform:scale(.86);}50%{opacity:.52;transform:scale(1.08);}}
+@keyframes twinkleB{0%,100%{opacity:.42;transform:scale(1.04);}50%{opacity:.14;transform:scale(.84);}}
+@keyframes driftY{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-9px) rotate(4deg);}}
+@keyframes driftX{0%,100%{transform:translateX(0);}50%{transform:translateX(-14px);}}
+@keyframes sway{0%,100%{transform:rotate(-7deg);}50%{transform:rotate(7deg);}}
+
+/* ---- 时间区 ---- */
+.lock-content{
+  position:relative;margin-top:96px;text-align:center;
+  color:var(--ink);z-index:2;width:100%;
+}
+.lock-date{
+  font-size:15px;font-weight:600;letter-spacing:.6px;
+  opacity:.62;margin-bottom:2px;
+  text-transform:none;
+  transition:color .35s ease;
+}
+/* ★ iOS 26 的核心：极粗、极紧、负字距 */
+.lock-time{
+  font-size:96px;font-weight:800;line-height:.96;
+  letter-spacing:-6px;
+  font-variant-numeric:tabular-nums;
+  color:var(--ink);
+  text-shadow:0 2px 18px rgba(255,255,255,.45);
+  transition:color .35s ease,text-shadow .35s ease;
+  /* 用光学骨架让 1 不塌陷 */
+  font-feature-settings:"tnum" 1,"ss01" 1;
+}
+.lock-time .colon{
+  display:inline-block;transform:translateY(-.06em);
+  margin:0 -.03em;
+}
+.lockscreen.has-photo .lock-date{color:#fff;opacity:.82;text-shadow:0 1px 8px rgba(0,0,0,.42);}
+.lockscreen.has-photo .lock-time{color:#fff;text-shadow:0 2px 24px rgba(0,0,0,.40);}
+/* 时间下方细横线，iOS 26 那种克制的分隔感 */
+.lock-time-rule{
+  width:44px;height:2px;border-radius:2px;margin:14px auto 0;
+  background:currentColor;opacity:.16;
+}
+.lockscreen.has-photo .lock-time-rule{background:#fff;opacity:.34;}
+
+/* ---- 锁屏信息胶囊（天气 / 电量 / 日期）---- */
+.lock-capsules{
+  display:flex;justify-content:center;gap:8px;flex-wrap:wrap;
+  margin-top:18px;padding:0 22px;
+}
+.lock-cap{
+  display:inline-flex;align-items:center;gap:6px;
+  height:30px;padding:0 13px;border-radius:15px;
+  background:rgba(255,255,255,.58);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid rgba(255,255,255,.82);
+  box-shadow:0 2px 10px -6px rgba(20,20,30,.16);
+  font-size:12.5px;font-weight:600;letter-spacing:.2px;
+  color:var(--ink-2);white-space:nowrap;
+  transition:background .3s ease,color .3s ease;
+}
+.lock-cap svg{width:14px;height:14px;flex:0 0 auto;opacity:.72;}
+.lock-cap .cap-dim{opacity:.6;font-weight:500;}
+.lockscreen.has-photo .lock-cap{
+  background:rgba(255,255,255,.20);
+  border-color:rgba(255,255,255,.28);
+  color:#fff;
+  backdrop-filter:blur(22px) saturate(180%);
+  -webkit-backdrop-filter:blur(22px) saturate(180%);
+  text-shadow:0 1px 6px rgba(0,0,0,.28);
+}
+.lockscreen.has-photo .lock-cap svg{opacity:.9;}
+
+/* ---- 锁屏通知卡片 ---- */
+.lock-notice-wrap{
+  position:relative;z-index:2;width:100%;
+  padding:26px 20px 0;
+  display:flex;flex-direction:column;gap:9px;
+}
+.lock-notice{
+  display:flex;align-items:center;gap:11px;
+  padding:12px 14px;border-radius:20px;
+  background:rgba(255,255,255,.60);
+  backdrop-filter:blur(24px) saturate(180%);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid rgba(255,255,255,.86);
+  box-shadow:0 6px 18px -14px rgba(20,20,30,.30);
+  animation:noticeIn .45s cubic-bezier(.34,1.3,.5,1) both;
+}
+.lock-notice:nth-child(2){animation-delay:.07s;}
+.lock-notice:nth-child(3){animation-delay:.14s;}
+@keyframes noticeIn{from{opacity:0;transform:translateY(10px) scale(.97);}to{opacity:1;transform:none;}}
+.lock-notice-icon{
+  width:34px;height:34px;border-radius:11px;flex:0 0 auto;
+  display:grid;place-items:center;color:#fff;
+  background:linear-gradient(145deg,#b6c0cf,#8d99ab);
+  box-shadow:0 3px 8px -4px rgba(30,40,60,.5);
+}
+.lock-notice-icon svg{width:17px;height:17px;}
+.lock-notice-body{flex:1;min-width:0;}
+.lock-notice-title{
+  font-size:13px;font-weight:700;color:var(--ink);letter-spacing:.2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.lock-notice-text{
+  font-size:12px;color:var(--ink-3);margin-top:2px;line-height:1.35;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+}
+.lock-notice-time{font-size:11px;color:var(--ink-4);flex:0 0 auto;font-weight:600;}
+.lockscreen.has-photo .lock-notice{
+  background:rgba(30,32,42,.40);
+  border-color:rgba(255,255,255,.16);
+  backdrop-filter:blur(26px) saturate(160%);
+  -webkit-backdrop-filter:blur(26px) saturate(160%);
+}
+.lockscreen.has-photo .lock-notice-title{color:#fff;}
+.lockscreen.has-photo .lock-notice-text{color:rgba(255,255,255,.76);}
+.lockscreen.has-photo .lock-notice-time{color:rgba(255,255,255,.55);}
+
+/* ---- 底部 ---- */
 .lock-bottom{
   position:absolute;bottom:0;left:0;right:0;padding-bottom:40px;
-  display:flex;flex-direction:column;align-items:center;gap:20px;
-  z-index:2;
+  display:flex;flex-direction:column;align-items:center;gap:18px;
+  z-index:3;margin-top:auto;
 }
 .lock-quick{display:flex;justify-content:space-between;width:100%;padding:0 48px;}
 .quick-btn{
@@ -134,22 +272,43 @@ html,body{
   border:1px solid rgba(255,255,255,.85);
   display:grid;place-items:center;cursor:pointer;color:var(--ink-2);
   box-shadow:var(--shadow-1);
-  transition:transform .55s cubic-bezier(.34,1.9,.4,1),background .25s;
+  transition:transform .55s cubic-bezier(.34,1.9,.4,1),background .25s,color .3s;
 }
 .quick-btn:active{transform:scale(.86);background:rgba(255,255,255,.85);}
+.quick-btn.on{background:rgba(255,250,225,.92);color:#8a6d1f;border-color:rgba(255,240,190,.95);}
+.lockscreen.has-photo .quick-btn{
+  background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.30);color:#fff;
+  backdrop-filter:blur(24px) saturate(170%);
+  -webkit-backdrop-filter:blur(24px) saturate(170%);
+}
 .unlock-hint{
   border:none;background:rgba(255,255,255,.68);
   backdrop-filter:blur(24px) saturate(180%);
   -webkit-backdrop-filter:blur(24px) saturate(180%);
   border:1px solid rgba(255,255,255,.85);
-  color:var(--ink);font-size:14px;font-weight:500;letter-spacing:1.2px;
+  color:var(--ink);font-size:14px;font-weight:600;letter-spacing:1.2px;
   padding:11px 32px;border-radius:24px;cursor:pointer;
   box-shadow:var(--shadow-2);
   transition:transform .55s cubic-bezier(.34,1.9,.4,1),background .25s;
   animation:breathe 3.6s ease-in-out infinite;
 }
 .unlock-hint:active{transform:scale(.94);}
+.lockscreen.has-photo .unlock-hint{
+  background:rgba(255,255,255,.24);border-color:rgba(255,255,255,.34);color:#fff;
+  text-shadow:0 1px 6px rgba(0,0,0,.3);
+}
 @keyframes breathe{0%,100%{opacity:.9;}50%{opacity:1;}}
+
+/* 底部上滑提示条 */
+.lock-swipe-hint{
+  position:absolute;left:50%;transform:translateX(-50%);
+  bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  width:118px;height:4px;border-radius:3px;
+  background:currentColor;opacity:.18;z-index:3;
+  animation:swipePulse 2.6s ease-in-out infinite;
+}
+.lockscreen.has-photo .lock-swipe-hint{background:#fff;opacity:.42;}
+@keyframes swipePulse{0%,100%{opacity:.12;transform:translateX(-50%) scaleX(.86);}50%{opacity:.30;transform:translateX(-50%) scaleX(1);}}
 
 .lockpwd-overlay{
   position:absolute;inset:0;z-index:9400;
@@ -3600,6 +3759,52 @@ html,body{
   color: #fff;
 }
 
+/* ===== 语音模型 / 试听 ===== */
+.tts-provider-row{
+  display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;
+}
+.tts-provider-chip{
+  padding:8px 14px;border-radius:12px;
+  background:rgba(120,120,128,.08);color:var(--ink-2);
+  font-size:13px;font-weight:500;cursor:pointer;
+  border:1.5px solid transparent;
+  transition:transform .3s,background .2s,color .2s,border-color .2s;
+  user-select:none;
+}
+.tts-provider-chip:active{transform:scale(.94);}
+.tts-provider-chip.active{
+  background:var(--accent-soft);color:var(--accent-deep);
+  border-color:rgba(110,125,148,.28);font-weight:600;
+}
+.tts-preview-label{
+  font-size:12.5px;color:var(--ink-3);margin-bottom:6px;font-weight:500;display:block;
+}
+.tts-preview-row{
+  display:flex;gap:10px;align-items:stretch;
+}
+.tts-preview-input{
+  flex:1;border:1px solid rgba(60,60,67,.10);
+  background:#fff;border-radius:10px;
+  padding:9px 12px;font:inherit;font-size:14px;
+  color:var(--ink);outline:none;
+  min-height:38px;line-height:1.4;
+}
+.tts-preview-input:focus{border-color:rgba(110,125,148,.4);}
+.tts-preview-btn{
+  flex-shrink:0;min-width:82px;
+  border:none;background:rgba(120,120,128,.12);
+  color:var(--ink-2);font:inherit;font-size:14px;font-weight:600;
+  padding:0 14px;border-radius:10px;cursor:pointer;
+  transition:transform .3s,background .2s,color .2s;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+}
+.tts-preview-btn:active{transform:scale(.95);}
+.tts-preview-btn.playing{background:#1a1a1c;color:#fff;}
+.tts-preview-btn.generating{background:rgba(120,120,128,.16);color:var(--ink-3);cursor:wait;}
+.tts-extra-field{display:none;}
+.tts-extra-field.show{display:block;}
+
+
 /* ===== 批量导入链接 ===== */
 .url-import-list {
   display: flex;
@@ -3669,6 +3874,85 @@ html,body{
 .url-import-row.invalid input.url-import-url {
   color: #c05040;
 }
+/* ============================================================
+   ★★★ 屏幕适配补丁（覆盖式追加，不修改任何原有规则）★★★
+   解决问题：
+   1. 100vh 在浏览器（有地址栏）时大于真实可视区 → 底部被裁
+   2. 图标行高写死 → 窗口变矮时小组件被遮挡
+   3. dock 与 viewport 底部数值打架 → 重叠
+   ============================================================ */
+:root{
+  --app-h: 100vh;              /* JS 会用真实可视高度覆盖 */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+@supports (height: 100dvh){
+  :root{ --app-h: 100dvh; }    /* 支持 dvh 时优先，自动跟随地址栏 */
+}
+/* 真实可视高度：避免移动浏览器地址栏把内容顶出屏幕 */
+html, body{
+  height: var(--app-h);
+  min-height: var(--app-h);
+  max-height: var(--app-h);
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
+}
+/* ---------- 桌面/大窗口：保持设计尺寸，窗口不够时整体等比缩放 ---------- */
+@media (min-width: 441px){
+  body{
+    align-items: center;
+    justify-content: center;
+  }
+  .phone{
+    flex: 0 0 auto;
+    width: 393px;
+    height: 852px;
+    max-height: calc(var(--app-h) - 24px);
+    /* 窗口太矮时按比例缩小，绝不压缩内部布局 */
+    transform-origin: center center;
+    transform: scale(var(--phone-scale, 1));
+  }
+}
+/* ---------- 手机窄屏 / 矮窗口（含普通浏览器）---------- */
+@media (max-width: 440px), (max-height: 900px){
+  html, body{ height: var(--app-h); }
+  .phone{
+    width: 100vw;
+    height: var(--app-h);
+    max-height: var(--app-h);
+    transform: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+  .screen{ height: 100%; border-radius: 0; padding: 0; }
+  /* ★ dock 与图标区不再打架：按 dock 实际占用高度动态留白 */
+  .home-pages-viewport{
+    top: calc(52px + var(--safe-t));
+    bottom: calc(var(--dock-bottom) + var(--dock-height) + 26px);
+  }
+  .home-dots{
+    bottom: calc(var(--dock-bottom) + var(--dock-height) + 10px);
+  }
+  /* 锁屏：给状态栏 / 灵动岛让位 */
+  .lock-content{
+    margin-top: calc(96px + var(--safe-t));
+  }
+  .lock-bottom{
+    padding-bottom: calc(36px + var(--safe-b));
+  }
+  .app-header{ padding-top: calc(56px + var(--safe-t)); }
+  .composer{ padding-bottom: calc(18px + var(--safe-b)); }
+  .music-player-actions{ padding-bottom: calc(24px + var(--safe-b)); }
+}
+/* 极矮窗口（横屏手机、小窗）：进一步压缩图标行，保证一屏内 6 行完整可见 */
+@media (max-height: 700px){
+  .lock-time{ font-size: 64px !important; }
+  .home-item-app .glyph{ width: 50px; height: 50px; }
+  .dock .app-icon .glyph{ width: 46px; height: 46px; }
+}
+html, body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 </style>
 </head>
 <body>
@@ -3706,10 +3990,46 @@ html,body{
 
     <section class="lockscreen" id="lockscreen">
       <div class="lock-wall" id="lockWall"></div>
+      <div class="lock-veil"></div>
+      <div class="lock-doodle" id="lockDoodle" aria-hidden="true">
+        <!-- 手绘星星 -->
+        <svg class="doodle-star-1" viewBox="0 0 24 24" fill="none" stroke="#8d99ab" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.4c.5 2.6 1.4 4.4 2.6 5.3 1.2.9 3 1.3 5 1.4-2 .4-3.8 1-5 2.1-1.2 1.1-2.1 2.9-2.6 5.3-.5-2.4-1.4-4.2-2.6-5.3-1.2-1.1-3-1.7-5-2.1 2-.1 3.8-.5 5-1.4 1.2-.9 2.1-2.7 2.6-5.3z"/>
+        </svg>
+        <svg class="doodle-star-2" viewBox="0 0 24 24" fill="none" stroke="#9aa8bb" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.4c.5 2.6 1.4 4.4 2.6 5.3 1.2.9 3 1.3 5 1.4-2 .4-3.8 1-5 2.1-1.2 1.1-2.1 2.9-2.6 5.3-.5-2.4-1.4-4.2-2.6-5.3-1.2-1.1-3-1.7-5-2.1 2-.1 3.8-.5 5-1.4 1.2-.9 2.1-2.7 2.6-5.3z"/>
+        </svg>
+        <svg class="doodle-star-3" viewBox="0 0 24 24" fill="#a8b4c4" stroke="none">
+          <circle cx="12" cy="12" r="2.4"/>
+        </svg>
+        <!-- 手绘月牙 -->
+        <svg class="doodle-moon" viewBox="0 0 24 24" fill="none" stroke="#8d99ab" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 14.2A8.4 8.4 0 0 1 9.8 4a8.6 8.6 0 1 0 10.2 10.2z"/>
+        </svg>
+        <!-- 手绘云 -->
+        <svg class="doodle-cloud" viewBox="0 0 48 24" fill="none" stroke="#9aa8bb" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 19h22a6 6 0 0 0 .6-12A9 9 0 0 0 17 8.5 5.2 5.2 0 0 0 12 19z"/>
+        </svg>
+        <svg class="doodle-cloud-2" viewBox="0 0 48 24" fill="none" stroke="#a8b4c4" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 19h22a6 6 0 0 0 .6-12A9 9 0 0 0 17 8.5 5.2 5.2 0 0 0 12 19z"/>
+        </svg>
+        <!-- 手绘小枝 -->
+        <svg class="doodle-leaf" viewBox="0 0 24 24" fill="none" stroke="#9aab9e" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 21c0-6 2-10 7-13"/>
+          <path d="M12.6 14.4c-2.4-.6-4.2-1.9-5-3.8 2.2-.6 4 .1 5 1.6"/>
+          <path d="M14.4 11.2c-.4-2.4.2-4.4 1.8-5.8 1.2 1.8 1.2 3.7-.2 5.2"/>
+        </svg>
+      </div>
+
       <div class="lock-content">
         <div class="lock-date" id="lockDate">1月1日 星期一</div>
         <div class="lock-time" id="lockTime">9:41</div>
+        <div class="lock-time-rule"></div>
+        <div class="lock-capsules" id="lockCapsules"></div>
       </div>
+
+      <div class="lock-notice-wrap" id="lockNotices"></div>
+
       <div class="lock-bottom">
         <div class="lock-quick">
           <div class="quick-btn" id="btnTorch">
@@ -3721,6 +4041,7 @@ html,body{
         </div>
         <button class="unlock-hint" id="unlockBtn">轻点解锁</button>
       </div>
+      <div class="lock-swipe-hint"></div>
     </section>
 
     <section class="homescreen" id="homescreen">
@@ -3813,6 +4134,63 @@ const WIDGET_IMAGE_FIELDS = {
   anniversary: ['charAvatar', 'userAvatar', 'bgImage'],
   text:        ['avatar', 'bgImage']
 };
+
+const TTS_PROVIDER_DEFAULTS = {
+  minimax: {
+    model: 'speech-2.8-hd',
+    voiceId: 'male-qn-qingse',
+    emotion: 'happy',
+    speed: 1.0
+  },
+  elevenlabs: {
+    model: 'eleven_multilingual_v2',
+    voiceId: '',
+    stability: 0.5,
+    similarityBoost: 0.75
+  },
+  mossland: {
+    model: 'moss-tts-1.5-flash',
+    voiceId: ''
+  }
+};
+
+/* ★ MiniMax 国内 / 海外双区域配置
+   国内：api.minimaxi.com（大陆节点，需国内实名 Key）
+   海外：api.minimax.io（国际版 Key）
+   两者接口格式一致，但默认模型名不同，且国内长文本 / 鉴权错误码不同 */
+const MINIMAX_REGIONS = {
+  cn: {
+    label: '国内版',
+    baseUrl: 'https://api.minimaxi.com',
+    model: 'speech-2.5-hd-preview'
+  },
+  global: {
+    label: '海外版',
+    baseUrl: 'https://api.minimax.io',
+    model: 'speech-2.8-hd'
+  }
+};
+/* ★ Mossland（Moss）语音服务，OpenAI /v1/audio/speech 兼容规格 */
+const MOSSLAND_BASE_URL = 'https://api.mosi.cn';
+/* ★ ElevenLabs 官方 */
+const ELEVENLABS_BASE_URL = 'https://api.elevenlabs.io';
+const MINIMAX_VOICES = [
+  { id: 'male-qn-qingse', name: '青涩青年' },
+  { id: 'male-qn-jingying', name: '精英青年' },
+  { id: 'male-qn-badao', name: '霸道青年' },
+  { id: 'female-shaonv', name: '少女' },
+  { id: 'female-yujie', name: '御姐' },
+  { id: 'female-chengshu', name: '成熟女性' },
+  { id: 'female-tianmei', name: '甜美女性' },
+  { id: 'presenter_male', name: '男性主持人' },
+  { id: 'presenter_female', name: '女性主持人' },
+  { id: 'audiobook_male_1', name: '男性有声书1' },
+  { id: 'audiobook_male_2', name: '男性有声书2' },
+  { id: 'audiobook_female_1', name: '女性有声书1' },
+  { id: 'audiobook_female_2', name: '女性有声书2' }
+];
+const TTS_PREVIEW_DEFAULT_TEXT = '你好呀，今天过得怎么样？';
+
 
 function genWxid() {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -3950,6 +4328,329 @@ async function makeHttpError(res) {
   err.status = res.status;
   return err;
 }
+
+/* ============================================================
+   TTS 语音中转（解决浏览器 CORS 限制的唯一可靠方案）
+   ------------------------------------------------------------
+   小手机是纯静态 PWA，浏览器直连厂商接口会被 CORS 拦截。
+   方案：把请求发到自建的 Cloudflare Worker 中转，由它转发并补 CORS 头。
+   用户只需在「语音接口地址」填中转地址，或全局配置 TTS_PROXY_URL。
+   ============================================================ */
+/* ★★★ 默认中转地址（你自己的 Worker + 自定义域名）★★★
+   已绑定 tts.wubaimachine.top，国内可访问、不受 workers.dev 污染影响。 */
+const TTS_PROXY_URL = 'https://tts.wubaimachine.top';
+
+/* 统一拼接中转地址：proxyUrl 为空则直连 targetBase */
+function buildTtsEndpoint(proxyUrl, targetBase, path) {
+  const proxy = String(proxyUrl || '').trim().replace(/\/+$/, '');
+  const base = String(targetBase || '').trim().replace(/\/+$/, '');
+  const p = path.startsWith('/') ? path : '/' + path;
+  if (!proxy) return base + p;
+  // 如果用户填的就是完整中转地址（含 /tts 之类），仍然按 ?target= 方式传
+  return proxy + p;
+}
+
+/* 组装请求头：直连时用原生鉴权头；走中转时把目标地址/鉴权头交给 Worker */
+function buildTtsHeaders(proxyUrl, targetBase, provider, apiKey, extra) {
+  const usingProxy = !!String(proxyUrl || '').trim();
+  const h = Object.assign({ 'Content-Type': 'application/json' }, extra || {});
+  if (provider === 'elevenlabs' && !usingProxy) {
+    h['xi-api-key'] = apiKey;
+  } else if (provider === 'elevenlabs' && usingProxy) {
+    // 中转模式：Worker 会把 xi-api-key 原样透传
+    h['xi-api-key'] = apiKey;
+  } else {
+    h['Authorization'] = `Bearer ${apiKey}`;
+  }
+  if (usingProxy) {
+    // 告诉 Worker 真正的目标地址
+    h['X-TTS-Target'] = String(targetBase || '').replace(/\/+$/, '');
+  }
+  return h;
+}
+
+/* ★ MiniMax 错误码 → 人类可读提示 */
+function minimaxErrorMessage(code, msg) {
+  const map = {
+    1002: '文本太长啦，MiniMax 一次有字数上限，请分段',
+    1004: '鉴权失败：Key 无效、区域选错（国内/海外 Key 不通用）或余额不足',
+    1008: '余额不足，请去 MiniMax 后台充值',
+    1013: '请求过于频繁，稍后再试',
+    1027: '文本内容触发了合规审核，换句话试试',
+    2013: '音色 ID 不存在，请重新选择'
+  };
+  if (map[code]) return map[code];
+  return msg || ('MiniMax 错误 ' + code);
+}
+
+/* ★ 把厂商返回的 hex 音频字符串安全转成 Blob（修复含换行导致 parseInt 出 NaN 的 bug） */
+function hexToAudioBlob(hex, mime) {
+  const clean = String(hex || '').replace(/[\s\r\n]/g, '');
+  if (!clean || clean.length < 2) return null;
+  const len = clean.length >> 1;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    const b = parseInt(clean.substr(i * 2, 2), 16);
+    if (isNaN(b)) return null;
+    bytes[i] = b;
+  }
+  return new Blob([bytes], { type: mime || 'audio/mpeg' });
+}
+
+/* ============================================================
+   TTS 语音合成（MiniMax 国内/海外 / ElevenLabs / Mossland）
+   ============================================================ */
+async function synthesizeSpeech(text, voiceCfg, baseApi) {
+  if (!text || !text.trim()) throw new Error('合成文本为空');
+  if (!voiceCfg || !voiceCfg.provider) throw new Error('未选择语音服务商');
+  const provider = voiceCfg.provider;
+  const apiKey = (voiceCfg.key && voiceCfg.key.trim()) || (baseApi && baseApi.key) || '';
+  if (!apiKey) throw new Error('缺少 API Key');
+  const proxyUrl = (voiceCfg.proxyUrl && voiceCfg.proxyUrl.trim()) || TTS_PROXY_URL || '';
+
+  if (provider === 'minimax') {
+    const defaults = TTS_PROVIDER_DEFAULTS.minimax;
+    const region = voiceCfg.region === 'cn' ? 'cn' : 'global';
+    const regionCfg = MINIMAX_REGIONS[region];
+    // 显式填了语音地址优先，否则用区域默认域名
+    const targetBase = (voiceCfg.url && voiceCfg.url.trim()) || regionCfg.baseUrl;
+    const model = voiceCfg.model || regionCfg.model || defaults.model;
+    const voiceId = voiceCfg.voiceId || defaults.voiceId;
+    const body = {
+      model,
+      text: text.trim(),
+      stream: false,
+      voice_setting: {
+        voice_id: voiceId,
+        speed: typeof voiceCfg.speed === 'number' ? voiceCfg.speed : 1.0,
+        vol: 1.0,
+        pitch: 0
+      },
+      audio_setting: {
+        sample_rate: 32000,
+        bitrate: 128000,
+        format: 'mp3',
+        channel: 1
+      }
+    };
+    if (voiceCfg.emotion) body.voice_setting.emotion = voiceCfg.emotion;
+    const endpoint = buildTtsEndpoint(proxyUrl, targetBase, '/v1/t2a_v2');
+    const headers = buildTtsHeaders(proxyUrl, targetBase, provider, apiKey);
+    let res;
+    try {
+      res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+    } catch (e) { throw new Error('网络连接失败'); }
+    if (!res.ok) throw await makeHttpError(res);
+    let data; try { data = await res.json(); } catch (_) { throw new Error('返回内容不是 JSON'); }
+    if (data && data.base_resp && data.base_resp.status_code !== 0) {
+      throw new Error(minimaxErrorMessage(data.base_resp.status_code, data.base_resp.status_msg));
+    }
+    const hex = data && data.data && data.data.audio;
+    if (!hex) throw new Error('未返回音频数据');
+    const blob = hexToAudioBlob(hex, 'audio/mpeg');
+    if (!blob) throw new Error('音频数据解析失败');
+    return blob;
+  }
+
+  if (provider === 'elevenlabs') {
+    const defaults = TTS_PROVIDER_DEFAULTS.elevenlabs;
+    const targetBase = (voiceCfg.url && voiceCfg.url.trim()) || ELEVENLABS_BASE_URL;
+    const model = voiceCfg.model || defaults.model;
+    const voiceId = voiceCfg.voiceId;
+    if (!voiceId) throw new Error('请先填写 Voice ID');
+    const body = {
+      text: text.trim(),
+      model_id: model,
+      voice_settings: {
+        stability: typeof voiceCfg.stability === 'number' ? voiceCfg.stability : 0.5,
+        similarity_boost: typeof voiceCfg.similarityBoost === 'number' ? voiceCfg.similarityBoost : 0.75
+      }
+    };
+    const endpoint = buildTtsEndpoint(proxyUrl, targetBase, `/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream`);
+    const headers = buildTtsHeaders(proxyUrl, targetBase, provider, apiKey, { 'Accept': 'audio/mpeg' });
+    let res;
+    try {
+      res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+    } catch (e) { throw new Error('网络连接失败'); }
+    if (!res.ok) throw await makeHttpError(res);
+    return await res.blob();
+  }
+
+  if (provider === 'mossland') {
+    const defaults = TTS_PROVIDER_DEFAULTS.mossland;
+    const targetBase = (voiceCfg.url && voiceCfg.url.trim()) || MOSSLAND_BASE_URL;
+    const model = voiceCfg.model || defaults.model;
+    const voiceId = voiceCfg.voiceId;
+    if (!voiceId) throw new Error('请先填写 Voice ID（去 Moss 官网复制）');
+    // ★ OpenAI /v1/audio/speech 兼容规格：字段是 voice，不是 voice_id
+    const body = {
+      model,
+      input: text.trim(),
+      voice: voiceId,
+      response_format: 'mp3'
+    };
+    if (typeof voiceCfg.speed === 'number') body.speed = voiceCfg.speed;
+    const endpoint = buildTtsEndpoint(proxyUrl, targetBase, '/v1/audio/speech');
+    const headers = buildTtsHeaders(proxyUrl, targetBase, provider, apiKey, { 'Accept': 'audio/mpeg' });
+    let res;
+    try {
+      res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+    } catch (e) { throw new Error('网络连接失败'); }
+    if (!res.ok) throw await makeHttpError(res);
+    return await res.blob();
+  }
+
+  throw new Error('未知的语音服务商：' + provider);
+}
+
+/* ============================================================
+   拉取音色列表
+   ------------------------------------------------------------
+   MiniMax：不做拉取（普通用户拿 group_id 太麻烦），用内置官方音色表
+   Mossland：不做拉取（需用户去官网自己找 voice id），只能手填
+   ElevenLabs：保留拉取（GET /v1/voices 标准且稳定），手填兜底
+   ============================================================ */
+async function fetchVoiceList(voiceCfg, baseApi) {
+  const provider = voiceCfg.provider;
+  if (provider === 'minimax') return MINIMAX_VOICES.slice();
+  if (provider === 'mossland') {
+    throw new Error('Moss 音色需去官网自行获取，请直接填写 Voice ID');
+  }
+  const apiKey = (voiceCfg.key && voiceCfg.key.trim()) || (baseApi && baseApi.key) || '';
+  if (!apiKey) throw new Error('缺少 API Key');
+  const proxyUrl = (voiceCfg.proxyUrl && voiceCfg.proxyUrl.trim()) || TTS_PROXY_URL || '';
+
+  if (provider === 'elevenlabs') {
+    const targetBase = (voiceCfg.url && voiceCfg.url.trim()) || ELEVENLABS_BASE_URL;
+    const endpoint = buildTtsEndpoint(proxyUrl, targetBase, '/v1/voices');
+    const headers = buildTtsHeaders(proxyUrl, targetBase, provider, apiKey, { 'Accept': 'application/json' });
+    let res;
+    try {
+      res = await fetch(endpoint, { method: 'GET', headers });
+    } catch (_) { throw new Error('网络连接失败'); }
+    if (!res.ok) throw await makeHttpError(res);
+    const data = await res.json();
+    const arr = Array.isArray(data && data.voices) ? data.voices : [];
+    return arr.map(v => ({ id: v.voice_id, name: v.name || v.voice_id })).filter(v => v.id);
+  }
+
+  throw new Error('该服务商不支持拉取音色');
+}
+
+/* ============================================================
+   音频解锁（AudioContext）
+   ------------------------------------------------------------
+   浏览器自动播放策略：只有「用户手势」内才能播放。
+   AI 回复后自动朗读时，合成要等网络，手势窗口早已过期 → play() 被拦截。
+   解决：首次用户点击时创建并 resume AudioContext，之后用 Web Audio 播放，
+   不再受自动播放策略限制。试听仍沿用原生 Audio（本身在点击栈内）。
+   ============================================================ */
+let _ttsAudioCtx = null;
+let _ttsAudioCurrent = null;
+
+function unlockAudioContext() {
+  try {
+    if (!_ttsAudioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      _ttsAudioCtx = new AC();
+    }
+    if (_ttsAudioCtx.state === 'suspended') _ttsAudioCtx.resume().catch(() => {});
+    return _ttsAudioCtx;
+  } catch (_) { return null; }
+}
+
+/* 用 Web Audio 播放一段 Blob（供自动朗读使用，不受自动播放策略限制，
+   前提是 AudioContext 已被用户手势解锁过） */
+async function playBlobViaAudioContext(blob) {
+  const ctx = unlockAudioContext();
+  if (!ctx) return null;
+  const buf = await blob.arrayBuffer();
+  const audioBuf = await new Promise((resolve, reject) => {
+    // decodeAudioData 兼容旧写法
+    const p = ctx.decodeAudioData(buf.slice(0), resolve, reject);
+    if (p && p.then) p.then(resolve).catch(reject);
+  });
+  stopAudioContextPlayback();
+  const src = ctx.createBufferSource();
+  src.buffer = audioBuf;
+  src.connect(ctx.destination);
+  src.start(0);
+  _ttsAudioCurrent = src;
+  return src;
+}
+
+function stopAudioContextPlayback() {
+  if (_ttsAudioCurrent) {
+    try { _ttsAudioCurrent.stop(); } catch (_) {}
+    try { _ttsAudioCurrent.disconnect(); } catch (_) {}
+    _ttsAudioCurrent = null;
+  }
+}
+
+/* ============================================================
+   试听语音（独立 Audio，不走 player 通道）
+   ============================================================ */
+let _ttsPreviewAudio = null;
+let _ttsPreviewUrl = null;
+let _ttsPreviewBusy = false;
+
+function stopTtsPreview(btnEl) {
+  if (_ttsPreviewAudio) {
+    try { _ttsPreviewAudio.pause(); } catch (_) {}
+    _ttsPreviewAudio = null;
+  }
+  if (_ttsPreviewUrl) {
+    try { URL.revokeObjectURL(_ttsPreviewUrl); } catch (_) {}
+    _ttsPreviewUrl = null;
+  }
+  if (btnEl) {
+    btnEl.classList.remove('playing', 'generating');
+    btnEl.disabled = false;
+    btnEl.textContent = '▶ 试听';
+  }
+}
+
+async function previewVoice(text, voiceCfg, baseApi, btnEl) {
+  if (_ttsPreviewBusy) return;
+  if (!text || !text.trim()) { toast('请先填写试听文本'); return; }
+  if (text.length > 100) { toast('试听文本最多 100 字'); return; }
+  if (_ttsPreviewAudio) { stopTtsPreview(btnEl); return; }
+
+  _ttsPreviewBusy = true;
+  // ★ 趁用户点击手势还在，先解锁音频上下文，供后续自动朗读使用
+  unlockAudioContext();
+  btnEl.classList.add('generating');
+  btnEl.textContent = '生成中…';
+  btnEl.disabled = true;
+  try { if (player && player.playing) player.pause(); } catch (_) {}
+
+  try {
+    const blob = await synthesizeSpeech(text, voiceCfg, baseApi);
+    _ttsPreviewUrl = URL.createObjectURL(blob);
+    _ttsPreviewAudio = new Audio(_ttsPreviewUrl);
+    _ttsPreviewAudio.onended = () => { stopTtsPreview(btnEl); };
+    _ttsPreviewAudio.onerror = () => { stopTtsPreview(btnEl); toast('音频播放失败'); };
+    try {
+      await _ttsPreviewAudio.play();
+    } catch (e) {
+      stopTtsPreview(btnEl);
+      toast('播放被浏览器拦截，请再点一次');
+      return;
+    }
+    btnEl.classList.remove('generating');
+    btnEl.classList.add('playing');
+    btnEl.textContent = '‖ 停止';
+    btnEl.disabled = false;
+  } catch (e) {
+    stopTtsPreview(btnEl);
+    toast('试听失败：' + friendlyError(e));
+  } finally {
+    _ttsPreviewBusy = false;
+  }
+}
+
+
 function parseDialoguePairs(text, friendName) {
   const userLabels = new Set(['用户', '我', '你', 'User', 'U', 'user', 'USER']);
   const aiLabels = new Set(['AI', '助手', '角色', 'Assistant', 'A', '它', '他', '她', 'assistant', 'ai']);
@@ -4473,9 +5174,7 @@ const state = {
     bgOpacity: 0.85,      // 0.1 ~ 1.0
     bgFit: 'cover',       // 'cover' | 'contain'
     motionEnabled: true,  // 动效开关
-    rainEnabled: false,   // 雨滴特效
-    flowerEnabled: true,  // 山茶花动态开关
-    rainConfig: { spawnInterval: 300, raindropSize: 30, blur: 2 } // 👈 新增：雨滴参数
+    flowerEnabled: true   // 山茶花动态开关
   },
   podcasts: []
 };
@@ -4995,19 +5694,276 @@ async function testFontLoad(fontFamily) {
     return Array.isArray(result) && result.length > 0;
   } catch (e) { return false; }
 }
+/* ============================================================
+   ★ 屏幕适配适配器
+   ------------------------------------------------------------
+   1) 用 visualViewport / innerHeight 写入真实可视高度 --app-h
+      （解决移动浏览器地址栏导致的 100vh 溢出、底部被裁）
+   2) 桌面宽窗口时按比例缩放整机，保证完整可见
+   3) 尺寸变化后重算图标网格，避免小组件被遮挡
+   ============================================================ */
+let _vpRaf = null;
+function applyViewportHeight() {
+  const root = document.documentElement;
+  let h = 0;
+  // visualViewport 最准（跟随地址栏收起/展开）
+  if (window.visualViewport && window.visualViewport.height) {
+    h = window.visualViewport.height;
+  }
+  if (!h) h = window.innerHeight || root.clientHeight || 0;
+  if (!h) return;
+  root.style.setProperty('--app-h', h + 'px');
+
+  // 桌面宽窗口：按比例缩放整台手机，避免被裁
+  const w = window.innerWidth || root.clientWidth || 0;
+  const DESIGN_W = 393, DESIGN_H = 852, MARGIN = 24;
+  if (w > 440) {
+    const scaleW = (w - MARGIN * 2) / DESIGN_W;
+    const scaleH = (h - MARGIN * 2) / DESIGN_H;
+    const scale = Math.min(1, Math.max(0.45, Math.min(scaleW, scaleH)));
+    root.style.setProperty('--phone-scale', scale.toFixed(3));
+  } else {
+    root.style.removeProperty('--phone-scale');
+  }
+}
+function relayoutHome() {
+  try {
+    if (!state.homePages || !state.homePages.length) return;
+    renderHome();
+  } catch (_) {}
+}
+function initViewportAdapter() {
+  applyViewportHeight();
+  const schedule = () => {
+    if (_vpRaf) cancelAnimationFrame(_vpRaf);
+    _vpRaf = requestAnimationFrame(() => {
+      _vpRaf = null;
+      applyViewportHeight();
+      relayoutHome();
+    });
+  };
+  window.addEventListener('resize', schedule, { passive: true });
+  window.addEventListener('orientationchange', () => setTimeout(schedule, 260), { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', schedule, { passive: true });
+    window.visualViewport.addEventListener('scroll', schedule, { passive: true });
+  }
+  // 等字体/图片加载完再校正一次
+  window.addEventListener('load', schedule, { passive: true });
+  setTimeout(schedule, 120);
+  setTimeout(schedule, 600);
+}
+
 function updateClock() {
   const d = new Date();
-  const t = d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
+  const hh = d.getHours();
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const t = hh + ':' + mm;
   const st = $('#statusTime'); if (st) st.textContent = t;
-  const lt = $('#lockTime');   if (lt) lt.textContent = t;
+  const lt = $('#lockTime');
+  if (lt) {
+    // iOS 26 风格：冒号用独立 span，能单独调光学位置
+    lt.innerHTML = `${hh}<span class="colon">:</span>${mm}`;
+  }
   const pwt = $('#lockPwdTime'); if (pwt) pwt.textContent = t;
   const ld = $('#lockDate');
   if (ld) ld.textContent = `${d.getMonth() + 1}月${d.getDate()}日 星期${'日一二三四五六'[d.getDay()]}`;
 }
+
+/* ============================================================
+   ★ 锁屏增强渲染：天气胶囊 / 通知卡 / 手电筒状态
+   ============================================================ */
+function lockGreeting(h) {
+  if (h < 5) return '夜深了';
+  if (h < 9) return '早安';
+  if (h < 12) return '上午好';
+  if (h < 14) return '午安';
+  if (h < 18) return '下午好';
+  if (h < 23) return '晚上好';
+  return '夜深了';
+}
+
+/* 极简天气图标（手绘线条风，和装饰统一）
+   kind：文字描述（可选）  code：WMO 数字天气码（Open-Meteo 用） */
+function lockWeatherIconSvg(kind, code) {
+  const common = 'fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"';
+  let k = String(kind || '').toLowerCase();
+  const c = (code == null) ? null : Number(code);
+
+  // 先按 WMO 码判断
+  let type = '';
+  if (c !== null && !isNaN(c)) {
+    if (c === 0) type = 'sun';
+    else if (c <= 2) type = 'sun';
+    else if (c === 3) type = 'cloud';
+    else if (c >= 45 && c <= 48) type = 'fog';
+    else if (c >= 51 && c <= 67) type = 'rain';
+    else if (c >= 71 && c <= 77) type = 'snow';
+    else if (c >= 80 && c <= 82) type = 'rain';
+    else if (c >= 85 && c <= 86) type = 'snow';
+    else if (c >= 95) type = 'thunder';
+  }
+  if (!type) {
+    if (/雨|rain|shower/.test(k)) type = 'rain';
+    else if (/雪|snow/.test(k)) type = 'snow';
+    else if (/云|阴|cloud|overcast|fog|雾/.test(k)) type = 'cloud';
+    else if (/雷|thunder|storm/.test(k)) type = 'thunder';
+    else type = 'sun';
+  }
+
+  if (type === 'rain') {
+    return `<svg viewBox="0 0 24 24" ${common}><path d="M17 15H7a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.4 1.5A3.4 3.4 0 0 1 17 15z"/><path d="M9 18l-1 3M13 18l-1 3M17 18l-1 3"/></svg>`;
+  }
+  if (type === 'snow') {
+    return `<svg viewBox="0 0 24 24" ${common}><path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9"/></svg>`;
+  }
+  if (type === 'cloud' || type === 'fog') {
+    return `<svg viewBox="0 0 24 24" ${common}><path d="M17 17H7a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.4 1.5A3.4 3.4 0 0 1 17 17z"/></svg>`;
+  }
+  if (type === 'thunder') {
+    return `<svg viewBox="0 0 24 24" ${common}><path d="M17 14H7a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.4 1.5A3.4 3.4 0 0 1 17 14z"/><path d="M12 16l-2 3.5h3L11 23"/></svg>`;
+  }
+  return `<svg viewBox="0 0 24 24" ${common}><circle cx="12" cy="12" r="4"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6"/></svg>`;
+}
+
+function renderLockCapsules() {
+  const box = $('#lockCapsules');
+  if (!box) return;
+  const parts = [];
+  const d = new Date();
+
+  // 1) 天气 / 问候
+  const city = getLockWeatherCity();
+  if (city) {
+    const w = getCachedWeather(city);
+    if (w && w.temp != null) {
+      const t = Math.round(Number(w.temp));
+      parts.push(`<span class="lock-cap">${lockWeatherIconSvg('', w.code)}<span>${t}°</span><span class="cap-dim">${esc(city)}</span></span>`);
+    } else {
+      parts.push(`<span class="lock-cap">${lockWeatherIconSvg('', null)}<span class="cap-dim">${esc(city)}</span></span>`);
+      // 没有缓存就顺手拉一次，拉到后下次刷新会显示温度
+      try { if (typeof scheduleWeatherFetch === 'function') scheduleWeatherFetch(city); } catch (_) {}
+    }
+  } else {
+    parts.push(`<span class="lock-cap">${lockWeatherIconSvg('', null)}<span class="cap-dim">${esc(lockGreeting(d.getHours()))}</span></span>`);
+  }
+
+  // 2) 今天的日程
+  try {
+    const key = formatDateKey(d);
+    const todays = (state.calendarEvents || []).filter(e => e && (e.date === key || e.dateKey === key));
+    if (todays.length) {
+      parts.push(`<span class="lock-cap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg><span>${todays.length} 个日程</span></span>`);
+    }
+  } catch (_) {}
+
+  // 3) 电量（异步 API 单独刷新，见 refreshLockBattery）
+  box.innerHTML = parts.join('');
+}
+
+/* 锁屏天气城市：复用时钟/天气组件里配置的城市 */
+function getLockWeatherCity() {
+  try {
+    const s = state.settings || {};
+    if (s.weatherCity) return s.weatherCity;
+    // 时钟组件带 city 字段（天气就靠它）
+    const w = (state.widgets || []).find(x => x && x.city && String(x.city).trim());
+    if (w) return String(w.city).trim();
+  } catch (_) {}
+  return '';
+}
+
+let _lockBatteryPct = null;
+function refreshLockBattery() {
+  if (!navigator.getBattery) return;
+  navigator.getBattery().then(b => {
+    const update = () => {
+      _lockBatteryPct = Math.round(b.level * 100);
+      const box = $('#lockCapsules');
+      if (!box) return;
+      let el = box.querySelector('.lock-cap-battery');
+      if (!el) {
+        el = document.createElement('span');
+        el.className = 'lock-cap lock-cap-battery';
+        box.appendChild(el);
+      }
+      const charging = b.charging ? '⚡' : '';
+      el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="8" width="16" height="8.5" rx="2.5"/><path d="M21 11v2.5"/><rect x="4.5" y="10" width="${Math.max(1, (b.level * 12)).toFixed(1)}" height="4.5" rx="1.2" fill="currentColor" stroke="none"/></svg><span>${charging}${_lockBatteryPct}%</span>`;
+    };
+    update();
+    b.addEventListener('levelchange', update);
+    b.addEventListener('chargingchange', update);
+  }).catch(() => {});
+}
+
+/* 锁屏通知卡：显示最近未读/最近消息 */
+function renderLockNotices() {
+  const box = $('#lockNotices');
+  if (!box) return;
+  let items = [];
+  try {
+    const friends = state.friends || [];
+    const rows = [];
+    friends.forEach(f => {
+      const msgs = f.messages || [];
+      if (!msgs.length) return;
+      const last = msgs[msgs.length - 1];
+      if (!last || last.role === 'user') return;
+      rows.push({
+        name: f.name || '好友',
+        avatar: f.avatar || '',
+        text: String(last.text || '').replace(/\s+/g, ' ').slice(0, 70),
+        ts: last.ts || last.time || 0
+      });
+    });
+    rows.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    items = rows.slice(0, 3);
+  } catch (_) {}
+
+  if (!items.length) { box.innerHTML = ''; return; }
+
+  box.innerHTML = items.map(it => {
+    const t = it.ts ? fmtNoticeTime(it.ts) : '';
+    const av = it.avatar
+      ? `<div class="lock-notice-icon" style="background-image:url('${esc(it.avatar)}');background-size:cover;background-position:center;"></div>`
+      : `<div class="lock-notice-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3.5 20.5l1.5-4.9A8.5 8.5 0 1 1 21 11.5z"/></svg></div>`;
+    return `<div class="lock-notice">${av}<div class="lock-notice-body"><div class="lock-notice-title">${esc(it.name)}</div><div class="lock-notice-text">${esc(it.text)}</div></div><div class="lock-notice-time">${esc(t)}</div></div>`;
+  }).join('');
+}
+
+function fmtNoticeTime(ts) {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  if (sameDay) return hh + ':' + mm;
+  const diff = (now - d) / 86400000;
+  if (diff < 7) return '周' + '日一二三四五六'[d.getDay()];
+  return (d.getMonth() + 1) + '/' + d.getDate();
+}
+
+/* 壁纸状态：有没有自定义照片，决定文字用深色还是白色 */
+function applyLockTheme() {
+  const lc = $('#lockscreen');
+  if (!lc) return;
+  const hasPhoto = !!(state.settings && state.settings.lockWallpaper);
+  lc.classList.toggle('has-photo', hasPhoto);
+}
+
+function refreshLockscreen() {
+  applyLockTheme();
+  renderLockCapsules();
+  renderLockNotices();
+  refreshLockBattery();
+}
+
 function applyWallpapers() {
   const lw = $('#lockWall'), hw = $('#homeWall');
   if (lw) lw.style.backgroundImage = state.settings.lockWallpaper ? `url("${state.settings.lockWallpaper}")` : '';
   if (hw) hw.style.backgroundImage = state.settings.homeWallpaper ? `url("${state.settings.homeWallpaper}")` : '';
+  if (typeof applyLockTheme === 'function') applyLockTheme();
 }
 function unlock() {
   $('#lockscreen').classList.add('hidden');
@@ -5020,7 +5976,8 @@ function goToLock() {
   $('#lockscreen').classList.remove('hidden');
   $('#homescreen').classList.remove('active');
   $('#screen').dataset.mode = 'lock';
-if (typeof renderGlobalPlayer === 'function') renderGlobalPlayer();
+  try { refreshLockscreen(); } catch (_) {}
+ if (typeof renderGlobalPlayer === 'function') renderGlobalPlayer();
 }
 function askPassword(opts = {}) {
   const { title = '请输入密码', allowCancel = false, allowReset = false, showTime = false, validate = null, failMessage = '', variant = 'fullscreen' } = opts;
@@ -5217,17 +6174,31 @@ const GRID_COLS = 4;
 const GRID_ROWS = 6;
 const PAGE_PAD_X = 18;
 const PAGE_PAD_TOP = 20;
-const CELL_H = 92;
+const CELL_H = 92;          // 基准行高（大屏沿用）
+const CELL_H_MIN = 66;      // 行高下限，保证图标仍能完整显示
 const CELL_GAP = 10;
 
 const homeState = { editing: false, currentPage: 0 };
 
+/* ★ 计算当前真正可用的行高：
+   图标区实际高度 = viewport 高度 - 上下 padding - 5 个间距
+   若放不下 6 行 92px，就按可用空间等比压缩，避免小组件被裁切 */
+function getRowHeight() {
+  const vp = $('#homePagesViewport');
+  const avail = vp ? vp.clientHeight : 0;
+  if (!avail) return CELL_H;
+  const usable = avail - PAGE_PAD_TOP - 8 - CELL_GAP * (GRID_ROWS - 1);
+  const h = Math.floor(usable / GRID_ROWS);
+  return Math.max(CELL_H_MIN, Math.min(CELL_H, h));
+}
+
 function getMetrics() {
   const vp = $('#homePagesViewport');
-  if (!vp) return { cellW: 82, cellH: CELL_H, gap: CELL_GAP, padX: PAGE_PAD_X, padTop: PAGE_PAD_TOP, vw: 357 };
+  const cellH = getRowHeight();
+  if (!vp) return { cellW: 82, cellH, gap: CELL_GAP, padX: PAGE_PAD_X, padTop: PAGE_PAD_TOP, vw: 357 };
   const vw = vp.clientWidth;
   const cellW = (vw - PAGE_PAD_X * 2 - CELL_GAP * (GRID_COLS - 1)) / GRID_COLS;
-  return { cellW, cellH: CELL_H, gap: CELL_GAP, padX: PAGE_PAD_X, padTop: PAGE_PAD_TOP, vw };
+  return { cellW, cellH, gap: CELL_GAP, padX: PAGE_PAD_X, padTop: PAGE_PAD_TOP, vw };
 }
 function computeItemRect(item, metrics) {
   const { cellW, cellH, gap, padX, padTop } = metrics;
@@ -6327,7 +7298,7 @@ function renderMusicMain() {
   const bgFit = state.music.bgFit || 'cover';
   
   // 如果用户没传背景图，背景层直接为空
-  const isRainActive = state.music.theme === 'comics' && state.music.rainEnabled && state.music.motionEnabled;   const bgLayerStyle = bgImage ? `background-image:url('${bgImage}'); background-size:${bgFit}; opacity:${bgOpacity}; height:${bgMode === 'half' ? '300px' : '100%'};` : (isRainActive ? 'height:100%;' : 'display:none;');
+  const bgLayerStyle = bgImage ? `background-image:url('${bgImage}'); background-size:${bgFit}; opacity:${bgOpacity}; height:${bgMode === 'half' ? '300px' : '100%'};` : 'display:none;';
   const bgLayerClass = bgMode === 'half' ? 'half-mode' : 'full-mode';
 
   appView.innerHTML = `
@@ -6467,73 +7438,8 @@ function renderMusicMain() {
     };
   }
 
-  // ==========================================
-  // 🌧️ 漫画主题专属：雨滴特效 (RaindropFX) 控制逻辑
-  // ==========================================
-  const oldRainCanvas = document.getElementById('rainCanvas');
-  if (oldRainCanvas) {
-    if (oldRainCanvas.__raindropFx) {
-      try { oldRainCanvas.__raindropFx.destroy(); } catch(e) {}
-    }
-    oldRainCanvas.remove();
-  }
-  if (window.__rainResizeHandler) {
-    window.removeEventListener('resize', window.__rainResizeHandler);
-    window.__rainResizeHandler = null;
-  }
-
-  if (state.music.theme === 'comics' && state.music.rainEnabled && state.music.motionEnabled) {
-    if (typeof RaindropFX === 'undefined') {
-      toast("❌ 雨滴库未加载");
-    } else {
-      setTimeout(() => {
-        // 必须保证有个真实存在的层来挂载 canvas
-        const bgLayer = document.querySelector('.music-app-bg-layer');
-        if (bgLayer && bgLayer.clientWidth > 0) {
-          const canvas = document.createElement('canvas');
-          canvas.id = 'rainCanvas';
-          // 绝对铺满，且 pointer-events:none 保证不影响点击
-          canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;';
-          bgLayer.appendChild(canvas);
-          
-          try {
-            const rConfig = state.music.rainConfig || { spawnInterval: 300, raindropSize: 30, blur: 2 };
-            
-            // 👇 核心修复：如果有自定义背景就传图，没有就传 1x1 透明图，千万别传 DOM
-            const bgSource = state.music.userCover || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-            
-            const rainFx = new RaindropFX({
-              canvas: canvas,
-              background: bgSource, // 只能是 URL 或 base64
-              spawnInterval: [rConfig.spawnInterval, rConfig.spawnInterval + 600],
-              raindropSize: [rConfig.raindropSize * 0.5, rConfig.raindropSize],
-              blur: rConfig.blur,
-              refractBase: 1,
-              refractScale: 8
-            });
-            
-            canvas.__raindropFx = rainFx;
-            rainFx.start();
-            toast("🌧️ 雨滴已加载");
-
-            window.__rainResizeHandler = () => {
-              const rect = bgLayer.getBoundingClientRect();
-              if (rect.width > 0 && rect.height > 0) {
-                rainFx.resize(rect.width, rect.height);
-              }
-            };
-            window.__rainResizeHandler();
-            window.addEventListener('resize', window.__rainResizeHandler);
-          } catch (err) {
-            toast("❌ 初始化失败: " + err.message);
-            console.error("雨滴实例化失败:", err);
-          }
-        }
-      }, 100); // 延迟 100ms 等待 DOM 彻底稳定
-    }
-  }
-
   renderGlobalPlayer();
+}                          // ← 只加这一行
 
 function openMusicMainMoreMenu() {
   const modal = $('#widgetConfigModal');
@@ -6683,30 +7589,6 @@ function openMusicBgSettings() {
       </div>
 
       <div class="field" style="border-bottom:.5px solid var(--line);padding-top:0;margin-bottom:10px;">
-      <div class="field" style="border-bottom:.5px solid var(--line);padding-top:0;margin-bottom:10px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
-          <div>
-            <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:4px;">雨滴特效</div>
-            <div style="font-size:12px;color:var(--ink-3);">仅 Comics 主题生效，屏幕会落下雨滴</div>
-          </div>
-          <div class="switch ${state.music.rainEnabled ? 'on' : ''}" id="bgRainSwitch"></div>
-        </div>
-      </div>
-
-      ${state.music.rainEnabled ? `
-      <div class="field" style="padding-top:10px;">
-        <label>雨滴密度 <span id="rainIntervalVal" style="color:var(--accent-deep);font-weight:600;">${Math.round(1000 / (state.music.rainConfig?.spawnInterval || 300))} 滴/秒</span></label>
-        <input type="range" id="rainIntervalSlider" min="100" max="1500" step="50" value="${state.music.rainConfig?.spawnInterval || 300}" style="width:100%;accent-color:var(--accent-deep);margin-top:8px; transform: scaleX(-1);">
-      </div>
-      <div class="field">
-        <label>雨滴大小 <span id="rainSizeVal" style="color:var(--accent-deep);font-weight:600;">${state.music.rainConfig?.raindropSize || 30}px</span></label>
-        <input type="range" id="rainSizeSlider" min="10" max="80" step="2" value="${state.music.rainConfig?.raindropSize || 30}" style="width:100%;accent-color:var(--accent-deep);margin-top:8px;">
-      </div>
-      <div class="field">
-        <label>玻璃模糊度 <span id="rainBlurVal" style="color:var(--accent-deep);font-weight:600;">${state.music.rainConfig?.blur || 2}</span></label>
-        <input type="range" id="rainBlurSlider" min="0" max="10" step="0.5" value="${state.music.rainConfig?.blur || 2}" style="width:100%;accent-color:var(--accent-deep);margin-top:8px;">
-      </div>
-      ` : ''}
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
           <div>
             <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:4px;">山茶花动态</div>
@@ -6762,45 +7644,6 @@ function openMusicBgSettings() {
     }
     toast(state.music.flowerEnabled ? '已开启山茶花' : '已关闭山茶花');
   };
-
-  $('#bgRainSwitch').onclick = () => {
-    state.music.rainEnabled = !state.music.rainEnabled;
-    $('#bgRainSwitch').classList.toggle('on', state.music.rainEnabled);
-    save();
-    renderMusicMain(); // 立即刷新主页查看效果
-    toast(state.music.rainEnabled ? '已开启雨滴' : '已关闭雨滴');
-  };
-
-  // 👇 加在这里：绑定三个滑块的拖拽事件
-  if ($('#rainIntervalSlider')) {
-    $('#rainIntervalSlider').oninput = (e) => {
-      const val = parseInt(e.target.value);
-      if (!state.music.rainConfig) state.music.rainConfig = {};
-      state.music.rainConfig.spawnInterval = val;
-      $('#rainIntervalVal').textContent = Math.round(1000 / val) + ' 滴/秒';
-      save();
-    };
-    $('#rainIntervalSlider').onchange = () => { renderMusicMain(); }; // 松手后刷新特效
-    
-    $('#rainSizeSlider').oninput = (e) => {
-      const val = parseInt(e.target.value);
-      if (!state.music.rainConfig) state.music.rainConfig = {};
-      state.music.rainConfig.raindropSize = val;
-      $('#rainSizeVal').textContent = val + 'px';
-      save();
-    };
-    $('#rainSizeSlider').onchange = () => { renderMusicMain(); };
-    
-    $('#rainBlurSlider').oninput = (e) => {
-      const val = parseFloat(e.target.value);
-      if (!state.music.rainConfig) state.music.rainConfig = {};
-      state.music.rainConfig.blur = val;
-      $('#rainBlurVal').textContent = val;
-      save();
-    };
-    $('#rainBlurSlider').onchange = () => { renderMusicMain(); };
-  }
-
   $('#bgSettingsClose').onclick = close;
 
   $('#bgBtnPick').onclick = () => {
@@ -8783,8 +9626,8 @@ function openPodcastMenu(podcast) {
     toast('已取消订阅');
   };
 }
-
-/* ---------- RSS 拉取（5 通道并行竞速，任一成功即返回，全部失败才报错） ---------- */
+/* ---------- RSS 拉取 ----------
+   ★ 优先走自建 Worker（稳定、不依赖第三方），失败再降级到公共代理竞速 */
 const PODCAST_PROXIES = [
   { name: 'codetabs',       wrap: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}` },
   { name: 'allorigins-raw', wrap: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` },
@@ -8794,7 +9637,45 @@ const PODCAST_PROXIES = [
   { name: 'proxy-cors-sh',  wrap: (url) => `https://proxy.cors.sh/${url}` }
 ];
 
+/* 用自建 Worker 抓 RSS（Worker 侧会带缓存，多次刷新只回源一次） */
+async function fetchRSSViaOwnWorker(url) {
+  const base = String(TTS_PROXY_URL || '').replace(/\/+$/, '');
+  if (!base) throw new Error('未配置中转地址');
+  const endpoint = `${base}/rss?url=${encodeURIComponent(url)}`;
+  const res = await fetchWithTimeout(endpoint, 12000);
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try {
+      const j = await res.json();
+      if (j && j.error) msg = j.error;
+    } catch (_) {}
+    throw new Error(msg);
+  }
+  const text = await res.text();
+  if (!text || text.length < 100) throw new Error('返回内容过短');
+  if (!/<(rss|feed|channel|item|entry)[\s>]/i.test(text.slice(0, 8000))) {
+    throw new Error('非 RSS/Atom 格式');
+  }
+  return text;
+}
+
 async function fetchRSSWithProxy(url) {
+  // ① 先试自己的 Worker（最稳，且带缓存）
+  try {
+    return await fetchRSSViaOwnWorker(url);
+  } catch (ownErr) {
+    // ② 自建失败 → 降级到公共代理竞速
+    try {
+      return await fetchRSSViaPublicProxies(url);
+    } catch (pubErr) {
+      const err = new Error('RSS 拉取失败（自建：' + (ownErr.message || ownErr) + '）');
+      err.allErrors = [(ownErr.message || String(ownErr)), pubErr.message].filter(Boolean);
+      throw err;
+    }
+  }
+}
+
+async function fetchRSSViaPublicProxies(url) {
   return new Promise((resolve, reject) => {
     const errors = [];
     let done = false;
@@ -8806,7 +9687,7 @@ async function fetchRSSWithProxy(url) {
       remaining--;
       if (remaining === 0) {
         done = true;
-        const err = new Error('所有代理均失败：' + errors.slice(0, 4).join('；'));
+        const err = new Error('公共代理均失败：' + errors.slice(0, 3).join('；'));
         err.allErrors = errors.slice();
         reject(err);
       }
@@ -12583,10 +13464,10 @@ function renderBeautyWall() {
     };
     input.click();
   };
-  $('#beautyLockPick').onclick = () => pickImage(url => { state.settings.lockWallpaper = url; save(); applyWallpapers(); state.theme.activeThemePresetId = null; toast('锁屏壁纸已更新'); renderBeautyWall(); });
+  $('#beautyLockPick').onclick = () => pickImage(url => { state.settings.lockWallpaper = url; save(); applyWallpapers(); try { refreshLockscreen(); } catch (_) {} state.theme.activeThemePresetId = null; toast('锁屏壁纸已更新'); renderBeautyWall(); });
   $('#beautyHomePick').onclick = () => pickImage(url => { state.settings.homeWallpaper = url; save(); applyWallpapers(); state.theme.activeThemePresetId = null; toast('主屏壁纸已更新'); renderBeautyWall(); });
   const lockResetBtn = $('#beautyLockReset');
-  if (lockResetBtn) lockResetBtn.onclick = () => { state.settings.lockWallpaper = null; save(); applyWallpapers(); state.theme.activeThemePresetId = null; toast('已恢复默认锁屏'); renderBeautyWall(); };
+  if (lockResetBtn) lockResetBtn.onclick = () => { state.settings.lockWallpaper = null; save(); applyWallpapers(); try { refreshLockscreen(); } catch (_) {} state.theme.activeThemePresetId = null; toast('已恢复默认锁屏'); renderBeautyWall(); };
   const homeResetBtn = $('#beautyHomeReset');
   if (homeResetBtn) homeResetBtn.onclick = () => { state.settings.homeWallpaper = null; save(); applyWallpapers(); state.theme.activeThemePresetId = null; toast('已恢复默认主屏'); renderBeautyWall(); };
 }
@@ -12763,7 +13644,23 @@ function renderApiApp() {
     : `<div class="empty-tip">还没有配置<br>点下面的按钮加一个</div>`;
   appView.innerHTML = `${headerHTML('API 配置')}<div class="app-body"><div class="section-title">已保存的配置</div><div class="card"><div class="list" id="apiList">${listHTML}</div></div><button class="btn btn-primary" id="apiAdd">+ 新增配置</button><p class="hint">支持 OpenAI 格式的接口。</p></div>`;
   $('#apiAdd').onclick = () => {
-    const cfg = { id: uid('a_'), name: '新配置', url: '', key: '', model: '', temperature: 0.8, visionEnabled: false, visionModel: '', visionUrl: '', visionKey: '' };
+    const cfg = {
+      id: uid('a_'), name: '新配置', url: '', key: '', model: '', temperature: 0.8,
+      visionEnabled: false, visionModel: '', visionUrl: '', visionKey: '',
+      voice: {
+        provider: 'minimax',
+        region: 'global',
+        url: '',
+        key: '',
+        proxyUrl: '',
+        voiceId: TTS_PROVIDER_DEFAULTS.minimax.voiceId,
+        model: TTS_PROVIDER_DEFAULTS.minimax.model,
+        emotion: 'happy',
+        speed: 1.0,
+        stability: 0.5,
+        similarityBoost: 0.75
+      }
+    };
     state.apis.push(cfg); state.activeApiId = cfg.id; apiEditingId = cfg.id;
     save(); renderApiEditor();
   };
@@ -12773,9 +13670,24 @@ function renderApiApp() {
     save(); renderApiEditor();
   };
 }
+
 function renderApiEditor() {
   const cfg = state.apis.find(a => a.id === apiEditingId);
   if (!cfg) { apiEditingId = null; return renderApiApp(); }
+  const voice = cfg.voice || {};
+  const provider = voice.provider || 'minimax';
+  const vdef = TTS_PROVIDER_DEFAULTS[provider] || TTS_PROVIDER_DEFAULTS.minimax;
+  const vModel = voice.model || vdef.model;
+  const vVoiceId = voice.voiceId || '';
+  const vUrl = voice.url || '';
+  const vKey = voice.key || '';
+  const vEmotion = voice.emotion || vdef.emotion || 'happy';
+  const vSpeed = typeof voice.speed === 'number' ? voice.speed : (vdef.speed || 1.0);
+  const vStability = typeof voice.stability === 'number' ? voice.stability : (vdef.stability || 0.5);
+  const vSimilarity = typeof voice.similarityBoost === 'number' ? voice.similarityBoost : (vdef.similarityBoost || 0.75);
+  const vRegion = voice.region === 'cn' ? 'cn' : 'global';
+  const vProxyUrl = voice.proxyUrl || '';
+
   appView.innerHTML = `
     <div class="app-header"><button class="back-btn" id="apiBack">‹ 配置</button><h1>编辑配置</h1><button class="header-btn" id="apiUse">${cfg.id === state.activeApiId ? '✓ 使用中' : '设为使用'}</button></div>
     <div class="app-body">
@@ -12802,8 +13714,92 @@ function renderApiEditor() {
           <div class="field"><label>视觉 API Key（留空 = 用上面的 Key）</label><input type="password" id="fVisionKey" value="${esc(cfg.visionKey || '')}" placeholder="留空就用主 Key" autocomplete="off" spellcheck="false"></div>
         </div>
       </div>
+      <div class="section-title">语音模型（TTS）</div>
+      <div class="card">
+        <div class="field">
+          <label>服务商</label>
+          <div class="tts-provider-row" id="fVoiceProviderRow" data-active="${provider}">
+            <div class="tts-provider-chip ${provider === 'minimax' ? 'active' : ''}" data-provider="minimax">MiniMax</div>
+            <div class="tts-provider-chip ${provider === 'elevenlabs' ? 'active' : ''}" data-provider="elevenlabs">ElevenLabs</div>
+            <div class="tts-provider-chip ${provider === 'mossland' ? 'active' : ''}" data-provider="mossland">Mossland</div>
+          </div>
+        </div>
+        <div class="tts-extra-field ${provider === 'minimax' ? 'show' : ''}" data-for="minimax">
+          <div class="field">
+            <label>区域（国内 / 海外 Key 不通用）</label>
+            <select id="fVoiceRegion" class="form-select">
+              <option value="global" ${vRegion === 'global' ? 'selected' : ''}>海外版 · api.minimax.io</option>
+              <option value="cn" ${vRegion === 'cn' ? 'selected' : ''}>国内版 · api.minimaxi.com</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Voice ID</label>
+          <div class="field-row"><input type="text" id="fVoiceId" value="${esc(vVoiceId)}" placeholder="${provider === 'mossland' ? '去 Moss 官网复制音色 ID' : (provider === 'minimax' ? '点下方音色点选' : '填写或点右边拉取')}" autocomplete="off" spellcheck="false"><button class="btn btn-ghost" id="fVoiceFetch" style="${provider === 'mossland' ? 'display:none;' : ''}">拉取音色</button></div>
+          <div class="model-chips" id="fVoiceChips"></div>
+          <p class="hint" id="fVoiceIdHint" style="display:${provider === 'mossland' ? 'block' : 'none'};">Moss 的音色需自行到官网「音色广场」复制 voice ID 后粘贴到这里，无法自动拉取。</p>
+        </div>
+        <div class="field"><label>模型</label><input type="text" id="fVoiceModel" value="${esc(vModel)}" placeholder="${esc(vdef.model)}" autocomplete="off" spellcheck="false"></div>
+        <div class="field"><label>语音接口地址（留空 = 用默认 / 上面的地址）</label><input type="text" id="fVoiceUrl" value="${esc(vUrl)}" placeholder="留空用官方默认地址" autocomplete="off" spellcheck="false"></div>
+        <div class="field"><label>语音 API Key（留空 = 用上面的 Key）</label><input type="password" id="fVoiceKey" value="${esc(vKey)}" placeholder="留空就用主 Key" autocomplete="off" spellcheck="false"></div>
+        <div class="field"><label>中转地址（解决浏览器跨域拦截，强烈建议填）</label><input type="text" id="fVoiceProxyUrl" value="${esc(vProxyUrl)}" placeholder="${esc(TTS_PROXY_URL || 'https://你的worker地址.workers.dev')}" autocomplete="off" spellcheck="false"><p class="hint">纯前端 PWA 直连厂商会被浏览器 CORS 拦截，请填部署好的 Cloudflare Worker 中转地址。留空则尝试直连（大概率失败）。</p></div>
+        <div class="tts-extra-field ${provider === 'minimax' ? 'show' : ''}" data-for="minimax">
+          <div class="field">
+            <label>情绪</label>
+            <select id="fVoiceEmotion" class="form-select">
+              <option value="happy" ${vEmotion === 'happy' ? 'selected' : ''}>happy（开心）</option>
+              <option value="sad" ${vEmotion === 'sad' ? 'selected' : ''}>sad（悲伤）</option>
+              <option value="angry" ${vEmotion === 'angry' ? 'selected' : ''}>angry（生气）</option>
+              <option value="fearful" ${vEmotion === 'fearful' ? 'selected' : ''}>fearful（害怕）</option>
+              <option value="disgusted" ${vEmotion === 'disgusted' ? 'selected' : ''}>disgusted（厌恶）</option>
+              <option value="surprised" ${vEmotion === 'surprised' ? 'selected' : ''}>surprised（惊讶）</option>
+              <option value="neutral" ${vEmotion === 'neutral' ? 'selected' : ''}>neutral（中性）</option>
+            </select>
+          </div>
+          <div class="field"><label>语速 <span id="fVoiceSpeedVal" style="color:#6e7d94;font-weight:600;">${vSpeed}</span></label><input type="range" id="fVoiceSpeed" min="0.5" max="2.0" step="0.1" value="${vSpeed}" style="width:100%;accent-color:#8a9bb5;"></div>
+        </div>
+        <div class="tts-extra-field ${provider === 'elevenlabs' ? 'show' : ''}" data-for="elevenlabs">
+          <div class="field"><label>稳定性 <span id="fVoiceStabilityVal" style="color:#6e7d94;font-weight:600;">${vStability}</span></label><input type="range" id="fVoiceStability" min="0" max="1" step="0.05" value="${vStability}" style="width:100%;accent-color:#8a9bb5;"></div>
+          <div class="field"><label>相似度 <span id="fVoiceSimilarityVal" style="color:#6e7d94;font-weight:600;">${vSimilarity}</span></label><input type="range" id="fVoiceSimilarity" min="0" max="1" step="0.05" value="${vSimilarity}" style="width:100%;accent-color:#8a9bb5;"></div>
+        </div>
+        <div class="tts-extra-field ${provider === 'mossland' ? 'show' : ''}" data-for="mossland">
+          <div class="field"><label>语速 <span id="fVoiceSpeedVal" style="color:#6e7d94;font-weight:600;">${vSpeed}</span></label><input type="range" id="fVoiceSpeed" min="0.5" max="2.0" step="0.1" value="${vSpeed}" style="width:100%;accent-color:#8a9bb5;"></div>
+        </div>
+        <div class="field">
+          <label class="tts-preview-label">试听</label>
+          <div class="tts-preview-row">
+            <input type="text" id="fVoicePreviewText" class="tts-preview-input" value="${esc(TTS_PREVIEW_DEFAULT_TEXT)}" placeholder="输入试听文本，最多 100 字" maxlength="100">
+            <button class="tts-preview-btn" id="fVoicePreviewBtn" type="button">▶ 试听</button>
+          </div>
+        </div>
+      </div>
       <div class="btn-row"><button class="btn btn-primary" id="fSave">保存</button><button class="btn btn-danger" id="fDelete">删除</button></div>
     </div>`;
+
+  const collectVoice = () => {
+    const provider = $('#fVoiceProviderRow').dataset.active || 'minimax';
+    const defaults = TTS_PROVIDER_DEFAULTS[provider] || TTS_PROVIDER_DEFAULTS.minimax;
+    const v = {
+      provider,
+      url: ($('#fVoiceUrl') ? $('#fVoiceUrl').value.trim() : ''),
+      key: ($('#fVoiceKey') ? $('#fVoiceKey').value.trim() : ''),
+      voiceId: ($('#fVoiceId') ? $('#fVoiceId').value.trim() : ''),
+      model: ($('#fVoiceModel') ? $('#fVoiceModel').value.trim() : '') || defaults.model,
+      proxyUrl: ($('#fVoiceProxyUrl') ? $('#fVoiceProxyUrl').value.trim() : '')
+    };
+    if (provider === 'minimax') {
+      v.region = ($('#fVoiceRegion') ? $('#fVoiceRegion').value : 'global') || 'global';
+      v.emotion = $('#fVoiceEmotion') ? $('#fVoiceEmotion').value : 'happy';
+      v.speed = parseFloat($('#fVoiceSpeed') ? $('#fVoiceSpeed').value : '1.0') || 1.0;
+    } else if (provider === 'elevenlabs') {
+      v.stability = parseFloat($('#fVoiceStability') ? $('#fVoiceStability').value : '0.5') || 0.5;
+      v.similarityBoost = parseFloat($('#fVoiceSimilarity') ? $('#fVoiceSimilarity').value : '0.75') || 0.75;
+    } else if (provider === 'mossland') {
+      v.speed = parseFloat($('#fVoiceSpeed') ? $('#fVoiceSpeed').value : '1.0') || 1.0;
+    }
+    return v;
+  };
+
   const collect = () => ({
     name: $('#fName').value.trim() || '未命名',
     url: $('#fUrl').value.trim(),
@@ -12813,15 +13809,111 @@ function renderApiEditor() {
     visionEnabled: $('#fVisionSwitch').classList.contains('on'),
     visionModel: $('#fVisionModel').value.trim(),
     visionUrl: $('#fVisionUrl').value.trim(),
-    visionKey: $('#fVisionKey').value.trim()
+    visionKey: $('#fVisionKey').value.trim(),
+    voice: collectVoice()
   });
+
+  // provider 切换
+  $('#fVoiceProviderRow').onclick = (e) => {
+    const chip = e.target.closest('.tts-provider-chip');
+    if (!chip) return;
+    const newProvider = chip.dataset.provider;
+    const oldProvider = $('#fVoiceProviderRow').dataset.active;
+    if (newProvider === oldProvider) return;
+    $('#fVoiceProviderRow').dataset.active = newProvider;
+    $('#fVoiceProviderRow').querySelectorAll('.tts-provider-chip').forEach(c => c.classList.toggle('active', c === chip));
+    const nd = TTS_PROVIDER_DEFAULTS[newProvider] || TTS_PROVIDER_DEFAULTS.minimax;
+    if ($('#fVoiceModel')) $('#fVoiceModel').value = nd.model;
+    if ($('#fVoiceId')) {
+      $('#fVoiceId').value = nd.voiceId || '';
+      $('#fVoiceId').placeholder = newProvider === 'mossland' ? '去 Moss 官网复制音色 ID'
+        : (newProvider === 'minimax' ? '点下方音色点选' : '填写或点右边拉取');
+    }
+    if ($('#fVoiceChips')) $('#fVoiceChips').innerHTML = '';
+    // 拉取按钮：Moss 不支持拉取，隐藏；MiniMax 用内置音色表，保留（点一下列出内置音色）
+    if ($('#fVoiceFetch')) $('#fVoiceFetch').style.display = (newProvider === 'mossland') ? 'none' : '';
+    if ($('#fVoiceIdHint')) $('#fVoiceIdHint').style.display = (newProvider === 'mossland') ? 'block' : 'none';
+    // MiniMax 切换区域时联动默认模型
+    if (newProvider === 'minimax' && $('#fVoiceRegion')) {
+      const rk = $('#fVoiceRegion').value === 'cn' ? 'cn' : 'global';
+      if (TTS_PROVIDER_DEFAULTS.minimax && MINIMAX_REGIONS[rk] && $('#fVoiceModel')) {
+        $('#fVoiceModel').value = MINIMAX_REGIONS[rk].model;
+      }
+    }
+    document.querySelectorAll('.tts-extra-field').forEach(el => {
+      el.classList.toggle('show', el.dataset.for === newProvider);
+    });
+    const btn = $('#fVoicePreviewBtn');
+    if (btn) stopTtsPreview(btn);
+  };
+
+  // MiniMax 区域切换 → 联动默认模型
+  if ($('#fVoiceRegion')) {
+    $('#fVoiceRegion').onchange = () => {
+      const rk = $('#fVoiceRegion').value === 'cn' ? 'cn' : 'global';
+      if ($('#fVoiceModel') && MINIMAX_REGIONS[rk]) $('#fVoiceModel').value = MINIMAX_REGIONS[rk].model;
+    };
+  }
+
+  // 拉取音色（MiniMax = 内置表；ElevenLabs = 真实请求；Moss = 提示手填）
+  $('#fVoiceFetch').onclick = async () => {
+    const vc = collectVoice();
+    const baseApi = { url: $('#fUrl').value.trim(), key: $('#fKey').value.trim() };
+    const btn = $('#fVoiceFetch');
+    btn.textContent = '拉取中'; btn.disabled = true;
+    try {
+      const voices = await fetchVoiceList(vc, baseApi);
+      if (!voices.length) { toast('没有拿到音色列表'); return; }
+      const cur = $('#fVoiceId').value.trim();
+      $('#fVoiceChips').innerHTML = voices.map(v =>
+        `<span class="chip ${v.id === cur ? 'active' : ''}" data-vid="${esc(v.id)}">${esc(v.name)}</span>`
+      ).join('');
+      toast(vc.provider === 'minimax' ? ('内置 ' + voices.length + ' 个官方音色，点一下选') : ('拿到 ' + voices.length + ' 个音色'));
+    } catch (e) {
+      toast(friendlyError(e));
+    } finally {
+      btn.textContent = '拉取音色'; btn.disabled = false;
+    }
+  };
+  // 音色 chips 点击
+  $('#fVoiceChips').onclick = (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    $('#fVoiceId').value = chip.dataset.vid;
+    document.querySelectorAll('#fVoiceChips .chip').forEach(c => c.classList.toggle('active', c === chip));
+  };
+
+  // 试听
+  const previewBtn = $('#fVoicePreviewBtn');
+  if (previewBtn) {
+    previewBtn.onclick = () => {
+      const text = ($('#fVoicePreviewText') || {}).value || '';
+      const vc = collectVoice();
+      const baseApi = { url: $('#fUrl').value.trim(), key: $('#fKey').value.trim() };
+      previewVoice(text, vc, baseApi, previewBtn);
+    };
+  }
+
+  // 滑块实时显示数值
+  if ($('#fVoiceSpeed')) {
+    $('#fVoiceSpeed').oninput = (e) => { $('#fVoiceSpeedVal').textContent = e.target.value; };
+  }
+  if ($('#fVoiceStability')) {
+    $('#fVoiceStability').oninput = (e) => { $('#fVoiceStabilityVal').textContent = e.target.value; };
+  }
+  if ($('#fVoiceSimilarity')) {
+    $('#fVoiceSimilarity').oninput = (e) => { $('#fVoiceSimilarityVal').textContent = e.target.value; };
+  }
+
+  // 原有事件
   $('#fVisionSwitch').onclick = () => { const sw = $('#fVisionSwitch'); sw.classList.toggle('on'); $('#visionFields').style.display = sw.classList.contains('on') ? 'block' : 'none'; };
-  $('#apiBack').onclick = () => { Object.assign(cfg, collect()); apiEditingId = null; save(); renderApiApp(); };
-  $('#apiUse').onclick = () => { Object.assign(cfg, collect()); state.activeApiId = cfg.id; save(); renderApiEditor(); toast('已切换'); };
+  $('#apiBack').onclick = () => { Object.assign(cfg, collect()); stopTtsPreview($('#fVoicePreviewBtn')); apiEditingId = null; save(); renderApiApp(); };
+  $('#apiUse').onclick = () => { Object.assign(cfg, collect()); stopTtsPreview($('#fVoicePreviewBtn')); state.activeApiId = cfg.id; save(); renderApiEditor(); toast('已切换'); };
   $('#fTemp').oninput = (e) => { $('#fTempVal').textContent = e.target.value; };
   $('#fSave').onclick = () => { Object.assign(cfg, collect()); save(); toast('已保存'); };
   $('#fDelete').onclick = () => {
     if (!confirm('确定删除这个配置吗？')) return;
+    stopTtsPreview($('#fVoicePreviewBtn'));
     state.apis = state.apis.filter(a => a.id !== cfg.id);
     if (state.activeApiId === cfg.id) state.activeApiId = state.apis[0] ? state.apis[0].id : null;
     apiEditingId = null; save(); renderApiApp(); toast('已删除');
@@ -12854,6 +13946,7 @@ function renderApiEditor() {
   };
   $('#fVisionChips').onclick = (e) => { const chip = e.target.closest('.chip'); if (!chip) return; $('#fVisionModel').value = chip.dataset.m; $$('#fVisionChips .chip').forEach(c => c.classList.toggle('active', c === chip)); };
 }
+
 function renderWorldApp() {
   if (wbEditingId) return renderWorldEditor();
   const listHTML = state.worldbooks.length
@@ -13068,13 +14161,29 @@ async function load() {
       }));
     }
     if (Array.isArray(s.apis)) {
-      state.apis = s.apis.map(a => ({
-        id: a.id || uid('a_'), name: a.name || '未命名',
-        url: a.url || '', key: a.key || '', model: a.model || '',
-        temperature: (typeof a.temperature === 'number') ? a.temperature : 0.8,
-        visionEnabled: !!a.visionEnabled, visionModel: a.visionModel || '',
-        visionUrl: a.visionUrl || '', visionKey: a.visionKey || ''
-      }));
+      state.apis = s.apis.map(a => {
+        const vc = (a.voice && typeof a.voice === 'object') ? a.voice : {};
+        return {
+          id: a.id || uid('a_'), name: a.name || '未命名',
+          url: a.url || '', key: a.key || '', model: a.model || '',
+          temperature: (typeof a.temperature === 'number') ? a.temperature : 0.8,
+          visionEnabled: !!a.visionEnabled, visionModel: a.visionModel || '',
+          visionUrl: a.visionUrl || '', visionKey: a.visionKey || '',
+          voice: {
+            provider: vc.provider || 'minimax',
+            region: (vc.region === 'cn' || vc.region === 'global') ? vc.region : 'global',
+            url: vc.url || '',
+            key: vc.key || '',
+            proxyUrl: vc.proxyUrl || '',
+            voiceId: vc.voiceId || '',
+            model: vc.model || '',
+            emotion: vc.emotion || 'happy',
+            speed: typeof vc.speed === 'number' ? vc.speed : 1.0,
+            stability: typeof vc.stability === 'number' ? vc.stability : 0.5,
+            similarityBoost: typeof vc.similarityBoost === 'number' ? vc.similarityBoost : 0.75
+          }
+        };
+      });
     }
     if (Array.isArray(s.worldbooks)) state.worldbooks = s.worldbooks;
     if (Array.isArray(s.stickers)) state.stickers = s.stickers;
@@ -13162,9 +14271,7 @@ async function load() {
         bgOpacity: typeof s.music.bgOpacity === 'number' ? s.music.bgOpacity : 0.85,
         bgFit: s.music.bgFit || 'cover',
         motionEnabled: typeof s.music.motionEnabled === 'boolean' ? s.music.motionEnabled : true,
-        rainEnabled: !!s.music.rainEnabled,
-        flowerEnabled: typeof s.music.flowerEnabled === 'boolean' ? s.music.flowerEnabled : true,
-        rainConfig: s.music.rainConfig || { spawnInterval: 300, raindropSize: 30, blur: 2 } // 👈 新增兼容
+        flowerEnabled: typeof s.music.flowerEnabled === 'boolean' ? s.music.flowerEnabled : true
       };
       player.mode = state.music.lastMode || 'loop-all';
     }
@@ -13520,8 +14627,13 @@ setTimeout(() => {
   renderHome();
   renderDock();
   applyWallpapers();
+  refreshLockscreen();
   updateClock();
   setInterval(updateClock, 10000);
+  setInterval(() => { try { refreshLockscreen(); } catch (_) {} }, 60000);
+
+  /* ★ 屏幕适配：监听尺寸变化，同步真实可视高度 + 桌面缩放 + 重排图标 */
+  initViewportAdapter();
 
   $('#unlockBtn').addEventListener('click', async () => {
     if (!state.settings.lockPasswordEnabled) { unlock(); return; }
@@ -13562,7 +14674,11 @@ setTimeout(() => {
     }
   });
 
-  $('#btnTorch').addEventListener('click', () => { toast('手电筒已点亮'); });
+  $('#btnTorch').addEventListener('click', (e) => {
+    const el = e.currentTarget;
+    const on = el.classList.toggle('on');
+    toast(on ? '手电筒已点亮' : '手电筒已关闭');
+  });
   $('#btnCamera').addEventListener('click', () => {
     if (!state.friends.length) { toast('还没有好友，先去聊天里添加一个'); return; }
     const input = document.createElement('input');
@@ -13917,8 +15033,5 @@ function initWaterSplash() {
 }
  
 </script>
-<!-- 假设你把下载的文件重命名为了 raindrop-fx.js 并放在了 assets 文件夹里 -->
-<!-- 如果你直接放在了根目录，就把路径改成 "./raindrop-fx.js" -->
-<script src="./assets/raindrop-fx.js"></script>
 </body>
 </html>
