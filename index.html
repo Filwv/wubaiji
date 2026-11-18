@@ -121,12 +121,14 @@ html,body{
 .lock-veil{
   position:absolute;inset:0;z-index:1;pointer-events:none;
   background:
-    radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.42) 0%, rgba(255,255,255,0) 58%),
-    radial-gradient(100% 60% at 50% 100%, rgba(255,255,255,.30) 0%, rgba(255,255,255,0) 55%);
+    radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.20) 0%, rgba(255,255,255,0) 58%),
+    radial-gradient(100% 60% at 50% 100%, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 55%);
 }
+/* ★ 有壁纸时不要把壁纸压暗：只在顶部/底部留极轻的渐变保证白字可读，
+   中间完全放行，让线段画和插画保持原本的色彩与亮度。 */
 .lockscreen.has-photo .lock-veil{
   background:
-    linear-gradient(180deg, rgba(10,10,16,.34) 0%, rgba(10,10,16,.06) 30%, rgba(10,10,16,.10) 68%, rgba(10,10,16,.46) 100%);
+    linear-gradient(180deg, rgba(10,10,16,.20) 0%, rgba(10,10,16,.02) 26%, rgba(10,10,16,.00) 55%, rgba(10,10,16,.06) 78%, rgba(10,10,16,.26) 100%);
 }
 /* ---- 手绘装饰层 ---- */
 .lock-doodle{
@@ -160,18 +162,19 @@ html,body{
 }
 /* ★ iOS 26 的核心：极粗、极紧、负字距 */
 .lock-time{
-  font-size:96px;font-weight:800;line-height:.96;
-  letter-spacing:-6px;
+  /* ★ 原来 96px / 800 字重 / -6px 字距：数字一多就黏在一起（如 09:09 的 9 和 9）。
+     改为更接近 iOS 26 的处理：稍小字号、超细字距、保留纵向紧凑。 */
+  font-size:92px;font-weight:600;line-height:1.02;
+  letter-spacing:-1.5px;
   font-variant-numeric:tabular-nums;
   color:var(--ink);
-  text-shadow:0 2px 18px rgba(255,255,255,.45);
+  text-shadow:0 2px 18px rgba(255,255,255,.35);
   transition:color .35s ease,text-shadow .35s ease;
-  /* 用光学骨架让 1 不塌陷 */
-  font-feature-settings:"tnum" 1,"ss01" 1;
+  font-feature-settings:"tnum" 1;
 }
 .lock-time .colon{
   display:inline-block;transform:translateY(-.06em);
-  margin:0 -.03em;
+  margin:0 .04em;font-weight:500;
 }
 .lockscreen.has-photo .lock-date{color:#fff;opacity:.82;text-shadow:0 1px 8px rgba(0,0,0,.42);}
 .lockscreen.has-photo .lock-time{color:#fff;text-shadow:0 2px 24px rgba(0,0,0,.40);}
@@ -4003,6 +4006,48 @@ html, body{
 .widget-inner{ overflow: hidden; }
 .widget-dialogue .dlg-stack{ overflow: hidden; }
 
+/* ============================================================
+   ★ 图标随格子等比缩放（修复安卓上"图标像被挤压"）
+   ------------------------------------------------------------
+   病因：安卓可用高度比 iPhone 矮，getRowHeight() 会把行高压到 66~80px，
+        但 .glyph 固定 56px + gap 8px + 标签 15px + 上留白 6px = 85px，
+        超出格子高度 → 内容溢出后被压在一起，视觉上就是"被挤压"。
+   方案：把 .home-item 设为查询容器，glyph / svg / 字号跟随格子高度缩放。
+        行高 92px（iPhone）时取到的就是原值 56px，观感完全不变；
+        行高变矮时自动缩小，永不溢出。
+   注意：.home-item 与 .home-item-app 是同一个元素，容器单位不能作用于
+        容器自身，因此 gap / padding 保持原值，只让子元素缩放。
+   ============================================================ */
+.home-item{ container-type: size; }
+@supports (container-type: size){
+  .home-item-app .glyph{
+    width: min(56px, 61cqh);
+    height: min(56px, 61cqh);
+    border-radius: min(16px, 18cqh);
+  }
+  .home-item-app .glyph svg{
+    width: min(32px, 35cqh);
+    height: min(32px, 35cqh);
+  }
+  .home-item-app .glyph.custom-icon img{ border-radius: min(16px, 18cqh); }
+  .home-item-app .label{
+    font-size: clamp(9px, 12cqh, 11px);
+    line-height: 1.2;
+  }
+  /* Dock 图标同样处理，避免安卓上被压（需先让 app-icon 成为查询容器） */
+  .dock .app-icon .glyph{
+    width: min(52px, 62cqh);
+    height: min(52px, 62cqh);
+  }
+}
+.dock .app-icon{ container-type: size; }
+/* 标签不再被截成"美化…"：允许略微超出格子宽度显示完整文字 */
+.home-item-app .label{
+  max-width: 126%;
+  padding: 0 2px;
+  text-overflow: clip;
+}
+
 /* 极矮窗口（横屏手机、小窗）：只压版面留白，不压内容字号 */
 @media (max-height: 700px){
   .lock-time{ font-size: 64px !important; }
@@ -6250,14 +6295,17 @@ const GRID_ROWS = 6;
 const PAGE_PAD_X = 18;
 const PAGE_PAD_TOP = 20;
 const CELL_H = 92;          // 基准行高（大屏沿用）
-const CELL_H_MIN = 66;      // 行高下限，保证图标仍能完整显示
+const CELL_H_MIN = 68;      // 行高下限（配合 cqh 缩放，图标不会再溢出）
 const CELL_GAP = 10;
 
 const homeState = { editing: false, currentPage: 0 };
 
 /* ★ 计算当前真正可用的行高：
    图标区实际高度 = viewport 高度 - 上下 padding - 5 个间距
-   若放不下 6 行 92px，就按可用空间等比压缩，避免小组件被裁切 */
+   若放不下 6 行 92px，就按可用空间等比压缩，避免小组件被裁切。
+   ★ 下限从 66 提高到 76：66px 时图标+标签必然溢出（安卓矮屏就是这种
+     情况，表现为"图标像被挤压"）。现在图标可随格子缩放，76px 仍能
+     舒适容纳 44px 图标 + 标签，观感比硬压到 66px 好很多。 */
 function getRowHeight() {
   const vp = $('#homePagesViewport');
   const avail = vp ? vp.clientHeight : 0;
