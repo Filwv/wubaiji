@@ -4020,27 +4020,31 @@ html, body{
    ============================================================ */
 .home-item{ container-type: size; }
 @supports (container-type: size){
+  /* 用 calc(100cqh - 27px) 而不是固定比例：
+     格子高度减去「上留白 6 + 间距 8 + 标签行 ~11 + 余量 2」后的剩余空间
+     才是图标真正可用的高度。这样：
+       · 行高 84px（iPhone PWA）→ 57px 可用，min() 取 56px → 原尺寸不变
+       · 行高 89~92px（安卓）    → 取 56px → 原尺寸不变
+       · 行高 68~75px（小屏）    → 自动缩到 41~48px，恰好不溢出 */
   .home-item-app .glyph{
-    width: min(56px, 61cqh);
-    height: min(56px, 61cqh);
+    width: min(56px, calc(100cqh - 27px));
+    height: min(56px, calc(100cqh - 27px));
     border-radius: min(16px, 18cqh);
   }
   .home-item-app .glyph svg{
-    width: min(32px, 35cqh);
-    height: min(32px, 35cqh);
+    width: min(32px, calc(100cqh - 40px));
+    height: min(32px, calc(100cqh - 40px));
   }
   .home-item-app .glyph.custom-icon img{ border-radius: min(16px, 18cqh); }
   .home-item-app .label{
-    font-size: clamp(9px, 12cqh, 11px);
-    line-height: 1.2;
-  }
-  /* Dock 图标同样处理，避免安卓上被压（需先让 app-icon 成为查询容器） */
-  .dock .app-icon .glyph{
-    width: min(52px, 62cqh);
-    height: min(52px, 62cqh);
+    font-size: clamp(9px, 12.5cqh, 11px);
+    line-height: 1.15;
   }
 }
-.dock .app-icon{ container-type: size; }
+/* 注意：Dock 图标不要加 container-type。
+   .dock .app-icon 的高度是 auto（由内容撑开），而 container-type:size 会
+   施加 size containment，强制按"无内容"计算尺寸 → 高度塌成 0，图标消失。
+   且 Dock 自身高度 84px 足够放下 52px 图标，本来就不需要缩放。 */
 /* 标签不再被截成"美化…"：允许略微超出格子宽度显示完整文字 */
 .home-item-app .label{
   max-width: 126%;
