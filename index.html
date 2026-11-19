@@ -11,6 +11,208 @@
 <meta name="apple-mobile-web-app-title" content="雾白机">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <style id="customFontStyle"></style>
+<style id="appExtraStyle">
+/* ============================================================
+   ★ 语音条（微信式：宽度随时长变化，转文字后不变）
+   ============================================================ */
+.bubble.voice{
+  background:#95ec69 !important; border-color:transparent !important;
+  color:#000 !important;
+  display:flex; align-items:center; gap:8px;
+  padding:10px 13px; min-width:88px; max-width:216px;
+  cursor:pointer; box-sizing:border-box;
+  user-select:none; -webkit-tap-highlight-color:transparent;
+  transition:filter .18s, transform .3s cubic-bezier(.34,1.7,.4,1);
+}
+.bubble.voice:active{ filter:brightness(.94); transform:scale(.985); }
+.bubble.voice.generating{ opacity:.72; }
+.voice-wave{
+  width:16px; height:16px; display:flex; align-items:flex-end; gap:2px;
+  flex-shrink:0;
+}
+.voice-wave span{ width:2px; height:35%; background:#1c1c1e; border-radius:1px; }
+.voice-wave span:nth-child(1){ height:40%; }
+.voice-wave span:nth-child(2){ height:80%; }
+.voice-wave span:nth-child(3){ height:60%; }
+.voice-wave.playing span{ animation:voiceWave .8s infinite ease-in-out; }
+.voice-wave.playing span:nth-child(2){ animation-delay:-.2s; }
+.voice-wave.playing span:nth-child(3){ animation-delay:-.4s; }
+@keyframes voiceWave{ 0%,100%{ height:30%; } 50%{ height:90%; } }
+.voice-dur{
+  font-size:13px; font-weight:500; margin-left:auto;
+  opacity:.72; flex-shrink:0; font-variant-numeric:tabular-nums;
+}
+
+/* 语音转文字区（压在语音条下方） */
+.voice-block{ display:flex; flex-direction:column; align-items:flex-start; gap:6px; max-width:100%; }
+/* ★ 转文字：就是一条气泡，留在语音条下方，
+   不遮盖、不浮动，后面的消息自然往下递 */
+.voice-trans{
+  position:relative; z-index:auto;
+  width:auto; max-width:min(240px, 68vw);
+  background:#fff;
+  border:.5px solid rgba(255,255,255,.95);
+  border-radius:14px; border-top-left-radius:6px;
+  padding:9px 12px;
+  font-size:14px; line-height:1.55; color:var(--ink);
+  box-shadow:0 2px 10px -8px rgba(20,20,30,.4);
+  animation:vtIn .2s ease;
+}
+@keyframes vtIn{ from{ opacity:0; transform:translateY(-4px); } to{ opacity:1; transform:none; } }
+.voice-trans-inner{ white-space:pre-wrap; word-break:break-word; }
+
+/* ============================================================
+   ★ 译文卡片（折叠只露“译文”一行）
+   ============================================================ */
+.trans-wrap{ margin-top:6px; max-width:100%; display:flex; }
+.trans-card{
+  background:rgba(244,245,247,.72);
+  backdrop-filter:blur(18px) saturate(170%); -webkit-backdrop-filter:blur(18px) saturate(170%);
+  border:.5px solid rgba(255,255,255,.9);
+  border-radius:13px;
+  box-shadow:0 2px 10px -7px rgba(20,20,30,.22);
+  overflow:hidden;
+  transition:background .2s, width .26s cubic-bezier(.34,1.4,.4,1), border-radius .2s;
+  cursor:pointer;
+  /* ★ 折叠时宽度收到内容宽度，展开才铺开：让每张折叠卡视觉上完全一致 */
+  width:auto;
+  max-width:100%;
+  align-self:flex-start;
+  display:inline-block;
+}
+.trans-card:not(.collapsed){ width:100%; display:block; }
+.trans-head{
+  display:flex; align-items:center; gap:5px;
+  padding:7px 11px; font-size:11.5px; font-weight:700;
+  letter-spacing:.06em; color:#7d8795;
+  -webkit-tap-highlight-color:transparent;
+  /* ★ 折叠头尺寸固定，不随正文字数变化 */
+  width:auto; min-width:0;
+}
+.trans-card.collapsed .trans-head{ padding:7px 11px 7px 11px; }
+.trans-dot{ width:4px; height:4px; border-radius:50%; background:#b3bcc9; flex-shrink:0; }
+.trans-head-txt{ flex:1; }
+.trans-caret{
+  font-size:9px; color:#a8b1bd; transition:transform .3s cubic-bezier(.34,1.4,.4,1);
+  transform:rotate(90deg);
+}
+.trans-card.collapsed .trans-caret{ transform:rotate(0deg); }
+.trans-body{
+  max-height:800px; overflow:hidden;
+  transition:max-height .34s cubic-bezier(.34,1.4,.4,1), opacity .22s;
+  opacity:1;
+}
+.trans-card.collapsed .trans-body{ max-height:0; opacity:0; }
+.trans-content{
+  padding:0 11px 9px; font-size:14px; line-height:1.6; color:#4a4f57;
+  white-space:pre-wrap; word-break:break-word;
+}
+.trans-card.collapsed{ }
+
+/* --- 聊天设置页 --- */
+.setting-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 0; border-bottom:.5px solid rgba(60,60,67,.08); cursor:pointer; }
+.setting-row:last-child{ border-bottom:none; }
+.setting-row:active{ opacity:.62; }
+.setting-label{ flex:1; min-width:0; }
+.setting-title{ font-size:15px; font-weight:500; color:var(--ink); }
+.setting-desc{ font-size:12px; color:var(--ink-3); margin-top:2px; }
+.setting-val{ color:#8d97a5; font-size:13.5px; display:flex; align-items:center; gap:4px; flex-shrink:0; }
+.setting-val .chev{ font-size:12px; color:#c2c8d2; }
+
+/* ============================================================
+   ★ 档案 App
+   ============================================================ */
+.arc-hero{
+  margin:0 16px 12px; padding:14px 16px 12px;
+  background:linear-gradient(150deg,#eef0f4 0%,#e6e9ef 100%);
+  border-radius:16px; border:.5px solid rgba(255,255,255,.9);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+}
+.arc-hero-title{
+  font-size:19px; font-weight:800; letter-spacing:.22em;
+  color:#5d6b7d; font-family:ui-monospace,"SF Mono",Menlo,monospace;
+}
+.arc-hero-sub{ margin-top:4px; font-size:12px; color:#8d97a5; letter-spacing:.02em; }
+.arc-list{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 16px 20px; }
+.arc-file{
+  position:relative; display:flex; align-items:center; gap:13px;
+  padding:12px 13px; margin-bottom:10px;
+  background:rgba(255,255,255,.78);
+  backdrop-filter:blur(14px) saturate(160%);
+  border:.5px solid rgba(255,255,255,.95);
+  border-radius:16px;
+  box-shadow:0 3px 14px -8px rgba(20,20,30,.22);
+  cursor:pointer;
+  transition:transform .32s cubic-bezier(.34,1.6,.4,1), background .2s;
+}
+.arc-file:active{ transform:scale(.978); }
+.arc-photo{
+  width:54px; height:66px; flex-shrink:0; border-radius:8px;
+  background:#f0f1f4; display:grid; place-items:center; overflow:hidden;
+  color:#aeb4be; font-size:22px; font-weight:700;
+  box-shadow:0 0 0 1px rgba(0,0,0,.06), 0 3px 8px -4px rgba(0,0,0,.2);
+}
+.arc-photo img{ width:100%; height:100%; object-fit:cover; filter:saturate(.92) contrast(1.02); }
+.arc-info{ flex:1; min-width:0; }
+.arc-code{
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;
+  font-size:10.5px; letter-spacing:.1em; color:#9aa4b2; font-weight:600;
+}
+.arc-name{
+  margin-top:3px; font-size:16.5px; font-weight:600; color:#22252a;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.arc-tag{
+  margin-top:4px; display:inline-block; font-size:11.5px; color:#7d8795;
+  padding:1.5px 8px; border-radius:20px; background:rgba(120,130,145,.10);
+}
+.arc-badge{
+  position:absolute; top:10px; right:11px;
+  font-size:10px; font-weight:600; color:#6e7d94;
+  padding:2px 7px; border-radius:20px;
+  background:rgba(154,168,187,.16);
+}
+.arc-pick{
+  width:24px; height:24px; border-radius:50%; flex-shrink:0;
+  border:1.5px solid rgba(120,130,145,.32);
+  display:grid; place-items:center;
+  font-size:13px; font-weight:800; color:#fff;
+  transition:all .22s cubic-bezier(.34,1.6,.4,1);
+}
+.arc-file.picked .arc-pick{ background:#6e7d94; border-color:#6e7d94; }
+.arc-file.picked{ background:rgba(154,168,187,.13); }
+.arc-file.in-chat .arc-name{ color:#8d97a5; }
+.arc-import-bar{
+  flex-shrink:0; display:flex; gap:10px; padding:10px 16px calc(14px + env(safe-area-inset-bottom,0px));
+  border-top:.5px solid rgba(60,60,67,.07);
+  background:rgba(255,255,255,.72); backdrop-filter:blur(20px);
+}
+.arc-import-btn{
+  flex:1; border:none; font:inherit; font-size:13.5px; font-weight:600;
+  padding:11px 0; border-radius:12px; cursor:pointer;
+  background:rgba(120,120,128,.11); color:#40444b;
+  transition:transform .4s cubic-bezier(.34,1.7,.4,1);
+}
+.arc-import-btn:active{ transform:scale(.955); background:rgba(120,120,128,.18); }
+
+/* 档案详情页 */
+.arc-detail-photo{ display:flex; flex-direction:column; align-items:center; gap:9px; padding:6px 0 20px; }
+.arc-detail-avatar{
+  width:112px; height:136px; border-radius:12px;
+  background:#f0f1f4; display:grid; place-items:center; overflow:hidden;
+  color:#aeb4be; font-size:44px; font-weight:700;
+  box-shadow:0 0 0 1px rgba(0,0,0,.05), 0 10px 26px -14px rgba(0,0,0,.4);
+  cursor:pointer;
+  transition:transform .34s cubic-bezier(.34,1.7,.4,1);
+}
+.arc-detail-avatar:active{ transform:scale(.97); }
+.arc-detail-avatar img{ width:100%; height:100%; object-fit:cover; filter:saturate(.92) contrast(1.02); }
+.arc-detail-code{
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;
+  font-size:11px; letter-spacing:.16em; font-weight:700; color:#9aa4b2;
+}
+</style>
+
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{
@@ -130,25 +332,6 @@ html,body{
   background:
     linear-gradient(180deg, rgba(10,10,16,.20) 0%, rgba(10,10,16,.02) 26%, rgba(10,10,16,.00) 55%, rgba(10,10,16,.06) 78%, rgba(10,10,16,.26) 100%);
 }
-/* ---- 手绘装饰层 ---- */
-.lock-doodle{
-  position:absolute;inset:0;z-index:1;pointer-events:none;
-  overflow:hidden;
-}
-.lock-doodle svg{position:absolute;display:block;}
-.doodle-star-1{top:13%;left:9%;width:22px;opacity:.42;animation:twinkleA 4.2s ease-in-out infinite;}
-.doodle-star-2{top:22%;right:11%;width:15px;opacity:.34;animation:twinkleB 5.4s ease-in-out infinite;}
-.doodle-star-3{top:38%;left:15%;width:11px;opacity:.28;animation:twinkleA 6.1s ease-in-out infinite .8s;}
-.doodle-moon{top:9%;right:8%;width:34px;opacity:.30;animation:driftY 9s ease-in-out infinite;}
-.doodle-cloud{top:29%;right:6%;width:62px;opacity:.20;animation:driftX 13s ease-in-out infinite;}
-.doodle-cloud-2{top:46%;left:6%;width:48px;opacity:.16;animation:driftX 16s ease-in-out infinite reverse;}
-.doodle-leaf{bottom:31%;left:8%;width:30px;opacity:.22;animation:sway 7s ease-in-out infinite;}
-@keyframes twinkleA{0%,100%{opacity:.16;transform:scale(.86);}50%{opacity:.52;transform:scale(1.08);}}
-@keyframes twinkleB{0%,100%{opacity:.42;transform:scale(1.04);}50%{opacity:.14;transform:scale(.84);}}
-@keyframes driftY{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-9px) rotate(4deg);}}
-@keyframes driftX{0%,100%{transform:translateX(0);}50%{transform:translateX(-14px);}}
-@keyframes sway{0%,100%{transform:rotate(-7deg);}50%{transform:rotate(7deg);}}
-
 /* ---- 时间区 ---- */
 .lock-content{
   position:relative;margin-top:96px;text-align:center;
@@ -1028,6 +1211,72 @@ html,body{
   font-size:12.5px;font-weight:600;color:var(--ink-3);
   letter-spacing:.6px;text-transform:uppercase;padding:4px 6px 9px;
 }
+/* ============================================================
+   ★ API 配置三大板块入口（主模型 / 视觉模型 / 语音模型）
+   ============================================================ */
+.api-entry-card{ padding:0; overflow:hidden; }
+.api-entry{
+  display:flex; align-items:center; gap:14px;
+  padding:16px 16px; cursor:pointer;
+  border-bottom:.5px solid var(--line);
+  transition:background .18s, transform .3s;
+}
+.api-entry:last-child{ border-bottom:none; }
+.api-entry:active{ background:rgba(120,120,128,.06); transform:scale(.992); }
+.api-entry-icon{
+  width:46px; height:46px; border-radius:14px;
+  display:grid; place-items:center; flex-shrink:0;
+  color:#5a6a80;
+}
+.api-entry-icon svg{ width:23px; height:23px; }
+.api-entry-icon.tone-pink{ background:rgba(246,225,231,.72); color:#a86a7e; }
+.api-entry-icon.tone-mint{ background:rgba(220,238,231,.72); color:#5f8a78; }
+.api-entry-icon.tone-lilac{ background:rgba(230,226,244,.72); color:#7a6fa0; }
+.api-entry-main{ flex:1; min-width:0; }
+.api-entry-title{
+  font-size:16px; font-weight:600; color:var(--ink);
+  display:flex; align-items:center; gap:8px; margin-bottom:4px;
+  letter-spacing:.2px;
+}
+.api-entry-badge{
+  font-size:10.5px; font-weight:500; color:var(--ink-3);
+  background:rgba(120,120,128,.09);
+  padding:2px 7px; border-radius:8px; letter-spacing:0;
+}
+.api-entry-sub{
+  font-size:12.5px; color:var(--ink-3); line-height:1.4;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+/* 主模型预设列表：左侧圆点标记当前使用中 */
+.api-preset{ position:relative; }
+.api-preset-dot{
+  width:9px; height:9px; border-radius:50%; flex-shrink:0;
+  background:rgba(120,120,128,.22);
+  transition:background .25s, box-shadow .25s;
+}
+.api-preset.active .api-preset-dot{
+  background:#7fae97;
+  box-shadow:0 0 0 4px rgba(127,174,151,.16);
+}
+.api-preset .li-badge{ margin-left:8px; }
+
+/* 「留空 = 继承」的提示小标签 */
+.inherit-tag{
+  font-size:11px; font-weight:400; color:var(--ink-4,#a8a8b0);
+  margin-left:6px; letter-spacing:0;
+}
+
+/* ★ API 配置页的板块副标题：主模型 / 视觉模型 / 语音模型 */
+.sec-tag{
+  font-size:11px;font-weight:500;color:var(--ink-4,#a8a8b0);
+  letter-spacing:0;text-transform:none;margin-left:6px;opacity:.9;
+}
+.btn-dashed.open{
+  border-style:solid;
+  background:rgba(255,255,255,.95);
+  color:var(--ink);
+}
 .field{padding:11px 0;border-bottom:.5px solid var(--line);}
 .field:last-child{border-bottom:none;}
 .field label{display:block;font-size:12.5px;color:var(--ink-3);margin-bottom:6px;font-weight:500;}
@@ -1634,6 +1883,46 @@ html,body{
   pointer-events:none;
 }
 .note-content{white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.6;}
+/* ★ 收藏里的语音气泡：羊皮纸上的手写便条语音条 */
+.note-voice{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 10px 7px 9px;
+  background:rgba(255,252,244,.85);
+  border:1px solid rgba(190,155,110,.3);
+  border-radius:11px 11px 11px 3px;
+  box-shadow:0 2px 6px -4px rgba(140,100,50,.35);
+  margin-bottom:2px;
+}
+.note-voice-wave{display:inline-flex;align-items:center;gap:2px;flex-shrink:0;}
+.note-voice-wave i{
+  display:block;width:2px;border-radius:1px;background:#9b7a4e;opacity:.75;
+}
+.note-voice-wave i:nth-child(1){height:7px;}
+.note-voice-wave i:nth-child(2){height:11px;}
+.note-voice-wave i:nth-child(3){height:5px;}
+.note-voice-dur{font-size:10.5px;font-weight:600;color:#8a6b42;font-variant-numeric:tabular-nums;}
+.note-trans{
+  margin-top:6px;padding-top:5px;
+  border-top:1px dashed rgba(190,155,110,.4);
+  font-size:11.5px;line-height:1.6;color:#8a6b42;
+}
+.note-detail-voice{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 13px;
+  background:rgba(255,252,244,.9);
+  border:1px solid rgba(190,155,110,.35);
+  border-radius:12px 12px 12px 4px;
+  margin-bottom:4px;
+}
+.note-detail-voice .note-voice-wave i{background:#9b7a4e;}
+.note-detail-voice .note-voice-dur{font-size:12px;}
+.note-detail-trans{
+  margin-top:8px;padding:8px 10px;
+  background:rgba(255,255,255,.6);
+  border-left:2px solid rgba(190,155,110,.5);
+  border-radius:0 6px 6px 0;
+  font-size:13px;line-height:1.65;color:#7a5c34;
+}
 .note-content .note-sticker{display:block;max-width:80px;margin:4px 0;border-radius:6px;}
 .note-content .note-image{display:block;max-width:100%;margin:4px 0;border-radius:4px;}
 .note-date{font-size:10px;color:#b09270;margin-top:10px;text-align:right;font-weight:500;}
@@ -4056,6 +4345,48 @@ html, body{
 @media (max-height: 700px){
   .lock-time{ font-size: 64px !important; }
 }
+
+/* --- 弹窗选择器 (Picker) --- */
+.picker-pop{
+  position:absolute; z-index:9999;
+  min-width:168px; max-width:min(300px, calc(100% - 24px));
+  background:rgba(255,255,255,.86);
+  backdrop-filter:blur(26px) saturate(190%); -webkit-backdrop-filter:blur(26px) saturate(190%);
+  border:.5px solid rgba(255,255,255,.9);
+  border-radius:14px;
+  box-shadow:0 12px 40px -10px rgba(20,20,30,.34), 0 2px 8px -2px rgba(20,20,30,.12);
+  padding:6px; overflow:hidden;
+  opacity:0; transform:scale(.94) translateY(-4px);
+  transform-origin:top right;
+  transition:opacity .18s ease, transform .22s cubic-bezier(.34,1.5,.4,1);
+  pointer-events:none;
+}
+.picker-pop.show{ opacity:1; transform:scale(1) translateY(0); pointer-events:auto; }
+.picker-pop-title{
+  font-size:11.5px; font-weight:700; letter-spacing:.06em; color:#9aa4b2;
+  padding:7px 10px 5px;
+}
+.picker-pop-item{
+  display:flex; align-items:center; gap:8px; width:100%;
+  border:none; background:transparent; font:inherit;
+  font-size:15px; color:#22252a; text-align:left;
+  padding:10px 10px; border-radius:9px; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .14s;
+}
+.picker-pop-item:active{ background:rgba(120,120,128,.13); }
+.picker-pop-item.active{ color:#0a84ff; font-weight:600; }
+.picker-pop-label{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.picker-pop-check{ font-size:13px; opacity:0; color:#0a84ff; flex-shrink:0; }
+.picker-pop-item.active .picker-pop-check{ opacity:1; }
+
+/* --- 聊天设置页 --- */
+.setting-row{ display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:0.5px solid var(--line); }
+.setting-row:last-child{ border-bottom:none; }
+.setting-label{ flex:1; }
+.setting-title{ font-size:15px; font-weight:500; color:var(--ink); }
+.setting-desc{ font-size:12px; color:var(--ink-3); margin-top:2px; }
+.setting-val{ color:var(--accent-deep); font-size:14px; font-weight:500; display:flex; align-items:center; gap:4px; }
 </style>
 </head>
 <body>
@@ -4094,36 +4425,6 @@ html, body{
     <section class="lockscreen" id="lockscreen">
       <div class="lock-wall" id="lockWall"></div>
       <div class="lock-veil"></div>
-      <div class="lock-doodle" id="lockDoodle" aria-hidden="true">
-        <!-- 手绘星星 -->
-        <svg class="doodle-star-1" viewBox="0 0 24 24" fill="none" stroke="#8d99ab" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3.4c.5 2.6 1.4 4.4 2.6 5.3 1.2.9 3 1.3 5 1.4-2 .4-3.8 1-5 2.1-1.2 1.1-2.1 2.9-2.6 5.3-.5-2.4-1.4-4.2-2.6-5.3-1.2-1.1-3-1.7-5-2.1 2-.1 3.8-.5 5-1.4 1.2-.9 2.1-2.7 2.6-5.3z"/>
-        </svg>
-        <svg class="doodle-star-2" viewBox="0 0 24 24" fill="none" stroke="#9aa8bb" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3.4c.5 2.6 1.4 4.4 2.6 5.3 1.2.9 3 1.3 5 1.4-2 .4-3.8 1-5 2.1-1.2 1.1-2.1 2.9-2.6 5.3-.5-2.4-1.4-4.2-2.6-5.3-1.2-1.1-3-1.7-5-2.1 2-.1 3.8-.5 5-1.4 1.2-.9 2.1-2.7 2.6-5.3z"/>
-        </svg>
-        <svg class="doodle-star-3" viewBox="0 0 24 24" fill="#a8b4c4" stroke="none">
-          <circle cx="12" cy="12" r="2.4"/>
-        </svg>
-        <!-- 手绘月牙 -->
-        <svg class="doodle-moon" viewBox="0 0 24 24" fill="none" stroke="#8d99ab" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 14.2A8.4 8.4 0 0 1 9.8 4a8.6 8.6 0 1 0 10.2 10.2z"/>
-        </svg>
-        <!-- 手绘云 -->
-        <svg class="doodle-cloud" viewBox="0 0 48 24" fill="none" stroke="#9aa8bb" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 19h22a6 6 0 0 0 .6-12A9 9 0 0 0 17 8.5 5.2 5.2 0 0 0 12 19z"/>
-        </svg>
-        <svg class="doodle-cloud-2" viewBox="0 0 48 24" fill="none" stroke="#a8b4c4" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 19h22a6 6 0 0 0 .6-12A9 9 0 0 0 17 8.5 5.2 5.2 0 0 0 12 19z"/>
-        </svg>
-        <!-- 手绘小枝 -->
-        <svg class="doodle-leaf" viewBox="0 0 24 24" fill="none" stroke="#9aab9e" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 21c0-6 2-10 7-13"/>
-          <path d="M12.6 14.4c-2.4-.6-4.2-1.9-5-3.8 2.2-.6 4 .1 5 1.6"/>
-          <path d="M14.4 11.2c-.4-2.4.2-4.4 1.8-5.8 1.2 1.8 1.2 3.7-.2 5.2"/>
-        </svg>
-      </div>
-
       <div class="lock-content">
         <div class="lock-date" id="lockDate">1月1日 星期一</div>
         <div class="lock-time" id="lockTime">9:41</div>
@@ -4412,7 +4713,14 @@ async function fetchModelList(baseUrl, apiKey) {
   if (!ids.length) throw new Error('没拿到任何模型');
   return ids;
 }
-function useVisionFor(a) { return !!(a && a.visionEnabled && a.visionModel); }
+/* ★ 视觉能力现在来自独立的「视觉模型」板块（state.visionCfg）。
+   模型留空时继承当前主模型，因此只要启用 + 主模型有值，就算可用。 */
+function useVisionFor(a) {
+  const v = state.visionCfg || {};
+  if (!v.enabled) return false;
+  const model = (v.model && v.model.trim()) || (a && a.model) || '';
+  return !!model;
+}
 async function makeHttpError(res) {
   let detail = '';
   try {
@@ -4663,24 +4971,34 @@ function unlockAudioContext() {
   } catch (_) { return null; }
 }
 
-/* 用 Web Audio 播放一段 Blob（供自动朗读使用，不受自动播放策略限制，
-   前提是 AudioContext 已被用户手势解锁过） */
-async function playBlobViaAudioContext(blob) {
-  const ctx = unlockAudioContext();
-  if (!ctx) return null;
-  const buf = await blob.arrayBuffer();
-  const audioBuf = await new Promise((resolve, reject) => {
-    // decodeAudioData 兼容旧写法
-    const p = ctx.decodeAudioData(buf.slice(0), resolve, reject);
-    if (p && p.then) p.then(resolve).catch(reject);
+/* ★ 播放一段 Blob。用独立 <audio>（每次新建），
+   不再复用全局 AudioContext/BufferSource 单例——那个写法在 iOS 上
+   会因为 decodeAudioData 或 resume 失败而“没声音”，且一旦一次出错，
+   后续所有语音都会跟着哑掉。
+   返回的对象提供 onended 与 play()，与旧调用保持一致。 */
+let _voiceAudioEl = null;
+function playBlobViaAudioContext(blob) {
+  if (!blob || !blob.size) return Promise.reject(new Error('音频为空'));
+  /* 停掉上一条 */
+  if (_voiceAudioEl) {
+    try { _voiceAudioEl.pause(); } catch (_) {}
+    try { if (_voiceAudioEl.src) URL.revokeObjectURL(_voiceAudioEl.src); } catch (_) {}
+    _voiceAudioEl = null;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = new Audio();
+  a.preload = 'auto';
+  a.src = url;
+  _voiceAudioEl = a;
+  const cleanup = () => {
+    try { if (a.src) URL.revokeObjectURL(url); } catch (_) {}
+  };
+  a.addEventListener('ended', cleanup, { once: true });
+  a.addEventListener('error', cleanup, { once: true });
+  return a.play().then(() => a).catch((e) => {
+    cleanup();
+    throw e;
   });
-  stopAudioContextPlayback();
-  const src = ctx.createBufferSource();
-  src.buffer = audioBuf;
-  src.connect(ctx.destination);
-  src.start(0);
-  _ttsAudioCurrent = src;
-  return src;
 }
 
 function stopAudioContextPlayback() {
@@ -4813,6 +5131,54 @@ function buildSystemPrompt(friend) {
   if (persona) parts.push(`# 角色设定\n${persona}`);
   const name = (friend && friend.name && friend.name.trim()) ? friend.name.trim() : '角色';
   parts.push(`# 你现在就是「${name}」\n从现在起，你的每一条回复都必须是「${name}」本人说的话。\n不要解释、不要总结、不要跳出来描述自己。`);
+
+  /* ★ 语言策略：由角色自己设定母语，不靠音色推断 */
+  const cs = (friend && friend.chatSettings) || {};
+  const langName = { zh: '简体中文', yue: '粤语（可用粤语口语表达）', en: 'English', ja: '日本語', ko: '한국어' };
+  if (langName[cs.language]) {
+    const extra = cs.language === 'zh'
+      ? ''
+      : `\n\n【硬性要求，优先级最高】\n本次对话你说话的唯一语言是「${langName[cs.language]}」。\n- 你的每一条回复、每一句话，包括 [语音] 里的内容和（笑）这类小动作之外的所有部分，必须是${langName[cs.language]}。\n- 绝对不许说中文，一个字都不行。即使用户全程用中文，你也只用${langName[cs.language]}回答。\n- 这是角色设定的一部分，不是翻译任务：你不是把中文翻成外语，而是本来就只会说${langName[cs.language]}。`;
+    parts.push(`# 说话语言\n你的母语是【${langName[cs.language]}】，你只会用${langName[cs.language]}说话。${extra}`);
+  } else if (cs.language === 'auto') {
+    parts.push(`# 说话语言\n使用与用户相同的语言回复。`);
+  }
+
+  /* ★ 译文与原文一起产出：不再事后发第二个请求，这是快的关键 */
+  const needTrans = !!cs.translation && cs.language && cs.language !== 'auto' && cs.language !== 'zh';
+  if (needTrans) {
+    parts.push(`# 译文附带规则（很重要）
+用户看不懂${langName[cs.language] || '外语'}，所以你每说一句话，都要在后面同时给出中文译文。
+
+【固定格式】原句 + 两个斜杠 + 译 + 两个斜杠 + 中文译文
+正确例子：
+  こんにちは//译//你好
+  お元気ですか//译//你还好吗
+
+【语音的写法】先闭合语音标签，再写译文，译文在标签外面：
+  正确：[语音]おはよう[/语音]//译//早上好
+  错误：[语音]おはよう//译//早上好[/语音]
+
+【绝对禁止】不许用【】、「」、（）、<> 等任何括号把译文包起来，也不许写「译：」这样的前缀。
+  错误：こんにちは【译】你好        ← 禁止
+  错误：こんにちは【//译//】你好     ← 禁止
+  错误：こんにちは//译//【你好】     ← 禁止
+  正确：こんにちは//译//你好        ← 只认这一种
+
+【其它】
+- 译文必须是简体中文，忠实于原句的语气。
+- 只有表情、纯动作（如（笑））不需要译文。
+- 绝对不要只回中文，也不要只回译文。
+- 一行一句台词，每句台词后面跟它自己的 //译// 译文。`);  
+  }
+
+  /* ★ 语音消息：让角色自己决定什么时候发语音 */
+  const vf = cs.voiceFreq || 'occasional';
+  if (vf !== 'never') {
+    const rate = { occasional: '偶尔（大约每 5~8 条回复里有 1 条语音）', often: '经常（大约每 2~3 条回复里有 1 条语音）', always: '总是（几乎每条都用语音代替文字）' }[vf];
+    parts.push(`# 发语音\n你是在用手机聊天，可以发语音消息。当前偏好：${rate}。\n需要发语音时，把要说的话用 [语音]……[/语音] 包起来，就像真人在按着说话。\n- 语音内容必须是“说出口的话”，不要写动作描写、不要括号旁白。\n- 语音一般比较短，10~60 字，像真的对着手机说话。\n- 一条回复里可以只有语音，也可以语音与文字混合。\n- 不要每条都发语音，要看情绪和场景：揨娇、心虚、懒得打字、情绪激动的时候更像真人。`);
+  }
+
   return parts.join('\n\n');
 }
 function buildMessages(friend, useVision) {
@@ -4838,8 +5204,30 @@ function buildMessages(friend, useVision) {
         }
       } else if (m.sticker) messages.push({ role: 'user', content: `[表情:${m.sticker.name}]` });
       else messages.push({ role: 'user', content: m.text || '' });
-    } else if (m.role === 'assistant') messages.push({ role: 'assistant', content: m.text || '' });
+    } else if (m.role === 'assistant') {
+      /* ★ 回灌给模型时去掉内联译文，只保留“角色真正说出口的原文”
+         否则模型会学成“外语+中文译文”一起说，语言切换时更容易被带偏 */
+      let raw = String(m.text || '');
+      if (raw.indexOf('//译//') >= 0) {
+        raw = raw.split('\n').map(line => {
+          const k = line.indexOf('//译//');
+          return (k >= 0 ? line.slice(0, k) : line).trim();
+        }).filter(Boolean).join('\n');
+      }
+      messages.push({ role: 'assistant', content: raw });
+    }
   });
+  /* ★ 语言切换即时生效：用户随时可能改语言，历史消息里的旧语言会带偏模型。
+     这里在末尾补一条系统提醒，明确“从现在起换语言了”，比只靠开头 system 更有效 */
+  const cs2 = (friend && friend.chatSettings) || {};
+  if (cs2.language && cs2.language !== 'auto') {
+    const lg = { zh: '简体中文', yue: '粤语', en: 'English', ja: '日本語', ko: '한국어' }[cs2.language];
+    if (lg && cs2.language !== 'zh') {
+      messages.push({ role: 'system', content: `【提醒】用户刚刚把说话语言改成了「${lg}」。上面那些历史消息用的可能是别的语言，那是过去的事，不要跟着学。你接下来这一条回复必须全程使用「${lg}」，一个中文字都不许有。` });
+    } else if (lg) {
+      messages.push({ role: 'system', content: `【提醒】用户刚刚把说话语言改成了「简体中文」。接下来这一条回复请用简体中文。` });
+    }
+  }
   return messages;
 }
 async function requestChatStream(friend, onChunk) {
@@ -4853,9 +5241,10 @@ async function requestChatStream(friend, onChunk) {
   let baseUrl, key, model;
   const hasImage = (friend.messages || []).some(m => m && m.role === 'user' && m.image);
   if (useVision && hasImage) {
-    baseUrl = normalizeBaseUrl(api.visionUrl || api.url);
-    key = (api.visionKey && api.visionKey.trim()) || api.key;
-    model = api.visionModel;
+    const vis = resolvedVision();
+    baseUrl = normalizeBaseUrl(vis.url);
+    key = vis.key;
+    model = vis.model || api.model;
   } else {
     baseUrl = normalizeBaseUrl(api.url);
     key = api.key; model = api.model;
@@ -4913,9 +5302,10 @@ async function callSimpleChat(systemPrompt, userMessage, images) {
   const canSee = imgArr.length > 0 && useVisionFor(api);
   let baseUrl, key, model, userContent;
   if (canSee) {
-    baseUrl = normalizeBaseUrl(api.visionUrl || api.url);
-    key = (api.visionKey && api.visionKey.trim()) || api.key;
-    model = api.visionModel;
+    const vis = resolvedVision();
+    baseUrl = normalizeBaseUrl(vis.url);
+    key = vis.key;
+    model = vis.model || api.model;
     userContent = [{ type: 'text', text: userMessage }];
     imgArr.forEach(url => userContent.push({ type: 'image_url', image_url: { url } }));
   } else {
@@ -5247,6 +5637,14 @@ const state = {
   user: { name: '我', avatar: null, wxid: null, wallet: 0, momentsCover: null },
   moments: [],
   apis: [], activeApiId: null,
+  /* ★ API 配置重构为三大板块，各自独立存储：
+     - apis / activeApiId ：主模型预设列表（可多套，随时切换）
+     - visionCfg          ：视觉模型（看图），留空则继承主模型
+     - voiceCfg           ：语音模型（TTS），全局唯一
+     旧的「一个配置里塞三种」的数据会在 load 时自动迁移过来。 */
+  visionCfg: { enabled: false, model: '', url: '', key: '' },
+  voicePresets: [], activeVoicePresetId: null,
+  archive: [],
   worldbooks: [], stickers: [], friends: [], favorites: [],
   homePages: null,
   widgets: [],
@@ -5301,6 +5699,7 @@ let tideSelectedDate = null;
 
 let beautySubView = 'main';
 let apiEditingId = null;
+let apiView = 'list';   // list | main | vision | voice  （三大板块的当前页）
 let wbEditingId = null;
 let settingsSubView = 'main';
 
@@ -5740,6 +6139,7 @@ const ICONS = {
   lyrics: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="7" x2="21" y2="7"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="17" x2="19" y2="17"/></svg>`,
   more: `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>`,
   link: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
+  archive: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5h16"/><path d="M6.5 8.5V19a1.5 1.5 0 0 0 1.5 1.5h8a1.5 1.5 0 0 0 1.5-1.5V8.5"/><path d="M5 5.5h14a1 1 0 0 1 1 1V8.5H4V6.5a1 1 0 0 1 1-1z"/><path d="M10 12.5h4"/></svg>`,
   list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`
 };
 
@@ -5753,10 +6153,11 @@ const APPS = {
   api:      { name: 'API',    icon: ICONS.api,      ready: true },
   world:    { name: '世界书', icon: ICONS.world,    ready: true },
   sticker:  { name: '表情',   icon: ICONS.sticker,  ready: true },
+  archive:  { name: '档案',   icon: ICONS.archive,  ready: true },
   settings: { name: '设置',   icon: ICONS.settings, ready: true }
 };
 const DOCK_APPS = ['chat', 'api', 'world', 'settings'];
-const BEAUTY_APP_ORDER = ['chat', 'memory', 'music', 'calendar', 'tide', 'beauty', 'api', 'world', 'sticker', 'settings'];
+const BEAUTY_APP_ORDER = ['chat', 'memory', 'music', 'calendar', 'tide', 'beauty', 'api', 'world', 'sticker', 'archive', 'settings'];
 
 function getAppIconHTML(key) {
   const theme = state.theme;
@@ -6240,9 +6641,10 @@ function openApp(id) {
     tideSelectedDate = null;
     renderTideApp();
   } else if (id === 'beauty') { beautySubView = 'main'; renderBeautyApp(); }
-  else if (id === 'api') { apiEditingId = null; renderApiApp(); }
+  else if (id === 'api') { apiEditingId = null; apiView = 'list'; renderApiApp(); }
   else if (id === 'world') { wbEditingId = null; renderWorldApp(); }
   else if (id === 'sticker') renderStickerApp();
+  else if (id === 'archive') { archiveView = 'list'; archiveQuery = ''; archiveEditId = null; renderArchiveApp(); }
   else if (id === 'settings') { settingsSubView = 'main'; renderSettingsApp(); }
   else if (id === 'music') {
     musicSubView = 'main';
@@ -6265,6 +6667,7 @@ function goHome() {
   beautySubView = 'main';
   apiEditingId = null; wbEditingId = null; settingsSubView = 'main';
   musicSubView = 'main'; musicActivePlaylistId = null; musicActivePodcastId = null; _onlineSearchResults = []; _onlineSearchKeyword = '';
+  archiveView = 'list'; archiveEditId = null; archiveQuery = '';
   if (_playerUIRefreshUnsub) { _playerUIRefreshUnsub(); _playerUIRefreshUnsub = null; }
   stopLyricsController();
   appView.classList.remove('active');
@@ -11390,8 +11793,557 @@ function renderChatApp() {
   }
   if (chatSubView === 'editor') return renderFriendEditor();
   if (chatSubView === 'chat') return renderChatView();
+  if (chatSubView === 'settings') return renderChatSettings();
+  if (chatSubView === 'archive') return renderArchivePicker();
   return renderFriendList();
 }
+
+/* ============================================================
+   ★ 档案 App —— 档案馆风格的角色库
+   ============================================================ */
+let archiveView = 'list';        // list | detail | picker
+let archiveEditId = null;        // 正在查看的角色 id
+let archivePickSel = new Set();  // 从档案添加时的多选
+let archiveQuery = '';
+
+function archiveCodeOf(friend) {
+  /* 每个角色一个稳定的档案编号：归档时生成并存下来 */
+  if (!friend.archiveCode) {
+    const base = String(Math.abs(hashStr(friend.id || friend.name || '')) % 90000 + 10000);
+    friend.archiveCode = 'N-' + base.slice(0, 5);
+  }
+  return friend.archiveCode;
+}
+function hashStr(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = ((h << 5) - h + str.charCodeAt(i)) | 0; }
+  return h;
+}
+function archiveKnownChats() {
+  /* 判断角色是否已经在聊天列表里（按名字 + 头像匹配） */
+  const names = new Set(state.friends.map(f => f.name));
+  return names;
+}
+
+function renderArchiveApp() {
+  if (archiveView === 'detail') return renderArchiveDetail();
+  if (archiveView === 'picker') return renderArchivePicker();
+  return renderArchiveList();
+}
+
+function renderArchiveList() {
+  const files = state.archive || [];
+  const q = archiveQuery.trim().toLowerCase();
+  const shown = files.filter(p => !q || (p.name || '').toLowerCase().includes(q) || (p.tag || '').toLowerCase().includes(q));
+  const cards = shown.map(p => {
+    const code = p.archiveCode || (archiveCodeOf(p), p.archiveCode);
+    const inChat = state.friends.some(f => f.name === p.name && (f.avatar || '') === (p.avatar || ''));
+    const av = p.avatar ? `<img src="${p.avatar}" alt="">` : `<span>${esc((p.name || '?')[0])}</span>`;
+    return `<div class="arc-file" data-id="${p.id}">
+      <div class="arc-photo">${av}</div>
+      <div class="arc-info">
+        <div class="arc-code">${esc(code)}</div>
+        <div class="arc-name">${esc(p.name || '无名档案')}</div>
+        <div class="arc-tag">${esc(p.tag || p.relation || '未归类')}</div>
+      </div>
+      ${inChat ? '<div class="arc-badge">已在聊天</div>' : ''}
+    </div>`;
+  }).join('');
+
+  appView.innerHTML = `
+    <div class="app-header">
+      <button class="back-btn" data-back>‹ 返回</button>
+      <h1>档案</h1>
+      <button class="header-btn plus" id="arcImport">＋</button>
+    </div>
+    <div class="app-body flush" style="display:flex;flex-direction:column;padding:0;min-height:0;">
+      <div class="arc-hero">
+        <div class="arc-hero-title">ARCHIVE</div>
+        <div class="arc-hero-sub">共 ${files.length} 份角色档案</div>
+      </div>
+      <div class="chat-search" style="margin:0 16px 10px;flex-shrink:0;">
+        ${ICONS.search}
+        <input type="text" id="arcSearch" placeholder="搜索档案 / 编号" value="${esc(archiveQuery)}" autocomplete="off">
+      </div>
+      <div class="arc-list" id="arcList">
+        ${cards || `<div class="empty-tip">档案室还是空的<br>点右上角 <b>＋</b> 建立第一份档案</div>`}
+      </div>
+    </div>
+    <div class="arc-import-bar">
+      <button class="arc-import-btn" id="arcImportJson">.json</button>
+      <button class="arc-import-btn" id="arcImportTxt">.txt</button>
+      <button class="arc-import-btn" id="arcImportDocx">.docx</button>
+    </div>
+    <input type="file" id="arcFileJson" accept=".json,application/json" hidden>
+    <input type="file" id="arcFileTxt" accept=".txt,text/plain" hidden>
+    <input type="file" id="arcFileDocx" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+  `;
+
+  $('#arcSearch').oninput = (e) => {
+    archiveQuery = e.target.value;
+    const cur = e.target.selectionStart;
+    renderArchiveList();
+    const el = $('#arcSearch');
+    if (el) { el.focus(); try { el.setSelectionRange(cur, cur); } catch (_) {} }
+  };
+  $('#arcList').onclick = (e) => {
+    const fis = e.target.closest('.arc-file');
+    if (!fis) return;
+    archiveEditId = fis.dataset.id;
+    archiveView = 'detail';
+    renderArchiveApp();
+  };
+  $('#arcImport').onclick = () => { archiveEditId = null; archiveView = 'detail'; renderArchiveApp(); };
+  $('#arcImportJson').onclick = () => $('#arcFileJson').click();
+  $('#arcImportTxt').onclick = () => $('#arcFileTxt').click();
+  $('#arcImportDocx').onclick = () => $('#arcFileDocx').click();
+
+  $('#arcFileJson').onchange = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const txt = await f.text();
+      const card = parseArchiveJson(txt);
+      if (card) { openImported(card); return; }
+      /* 不是 JSON，当纯文本处理 */
+      openImported({ name: '', persona: txt });
+    } catch (err) { toast('导入失败：' + (err.message || err)); }
+  };
+
+  $('#arcFileTxt').onchange = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const txt = await f.text();
+      openImported({ name: guessName(f.name), persona: txt });
+    } catch (err) { toast('导入失败：' + (err.message || err)); }
+  };
+
+  $('#arcFileDocx').onchange = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      toast('正在解析文档…');
+      const txt = await readDocxText(f);
+      if (!txt.trim()) throw new Error('文档里没有可读文字');
+      openImported({ name: guessName(f.name), persona: txt });
+    } catch (err) { toast('导入失败：' + (err.message || err)); }
+  };
+}
+
+/* 从文件名猜角色名：去掉扩展名和常见的"角色卡/卡片"后缀 */
+function guessName(filename) {
+  return String(filename || '')
+    .replace(/\.[^.]+$/, '')
+    .replace(/[（(].*?[)）]/g, '')
+    .replace(/角色卡|人物卡|档案|人设/g, '')
+    .trim()
+    .slice(0, 20);
+}
+
+/* 解析 JSON 角色卡：兼容多种常见字段命名 */
+function parseArchiveJson(txt) {
+  let raw;
+  try { raw = JSON.parse(txt); } catch (_) { return null; }
+  if (!raw || typeof raw !== 'object') return null;
+  const d = (raw.data && typeof raw.data === 'object') ? raw.data : raw;
+
+  const name = d.name || d.char_name || d.characterName || raw.name || '';
+  const fields = [
+    d.personality ? '【性格】\n' + d.personality : '',
+    d.description ? '【描述】\n' + d.description : '',
+    d.scenario ? '【场景】\n' + d.scenario : '',
+    d.first_mes ? '【开场白】\n' + d.first_mes : '',
+    d.mes_example ? '【对话示例】\n' + d.mes_example : '',
+    d.persona ? '【人设】\n' + d.persona : '',
+    d.system_prompt ? '【系统提示】\n' + d.system_prompt : ''
+  ].filter(Boolean);
+
+  let persona = fields.join('\n\n');
+  /* 兜底：如果上面都没命中，就把所有字符串字段拼起来 */
+  if (!persona) {
+    persona = Object.keys(d)
+      .filter(k => typeof d[k] === 'string' && d[k].trim() && !['name', 'avatar', 'tag', 'relation'].includes(k))
+      .map(k => `${k}: ${d[k]}`)
+      .join('\n\n');
+  }
+  return {
+    name: String(name || '').slice(0, 20),
+    avatar: '',
+    tag: d.tag || d.category || '',
+    relation: d.relation || '',
+    persona
+  };
+}
+
+/* 读 .docx：zip 里的 word/document.xml，抽出 <w:t> 文本 */
+async function readDocxText(file) {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const files = await unzipEntries(buf, ['word/document.xml']);
+  const xmlBytes = files['word/document.xml'];
+  if (!xmlBytes) throw new Error('不是有效的 docx 文件');
+  const xml = new TextDecoder('utf-8').decode(xmlBytes);
+  return docxXmlToText(xml);
+}
+
+/* 极简 unzip：只解出需要的几个条目（基于中央目录 + stored/deflate） */
+async function unzipEntries(buf, wanted) {
+  const out = {};
+  const u8 = buf;
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  /* 找 End of Central Directory */
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= 0 && i > u8.length - 66000; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('不是有效的 zip/docx');
+  const cdOffset = dv.getUint32(eocd + 16, true);
+  const cdCount = dv.getUint16(eocd + 10, true);
+  let p = cdOffset;
+  for (let n = 0; n < cdCount; n++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true);
+    const compSize = dv.getUint32(p + 20, true);
+    const nameLen = dv.getUint16(p + 28, true);
+    const extraLen = dv.getUint16(p + 30, true);
+    const commentLen = dv.getUint16(p + 32, true);
+    const localOff = dv.getUint32(p + 42, true);
+    const name = new TextDecoder('utf-8').decode(u8.slice(p + 46, p + 46 + nameLen));
+    p += 46 + nameLen + extraLen + commentLen;
+
+    if (!wanted.includes(name)) continue;
+    /* 定位本地头，拿到真正的数据起点 */
+    const lNameLen = dv.getUint16(localOff + 26, true);
+    const lExtraLen = dv.getUint16(localOff + 28, true);
+    const dataStart = localOff + 30 + lNameLen + lExtraLen;
+    const comp = u8.slice(dataStart, dataStart + compSize);
+    if (method === 0) out[name] = comp;
+    else if (method === 8) out[name] = await inflateRaw(comp);
+    else throw new Error('不支持的压缩方式');
+  }
+  return out;
+}
+
+/* 用浏览器原生 DecompressionStream 解 deflate-raw */
+async function inflateRaw(bytes) {
+  if (typeof DecompressionStream === 'undefined') throw new Error('当前浏览器不支持解压 docx');
+  const ds = new DecompressionStream('deflate-raw');
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  const ab = await new Response(stream).arrayBuffer();
+  return new Uint8Array(ab);
+}
+
+/* docx 的 XML → 纯文本（按段落换行） */
+function docxXmlToText(xml) {
+  const paragraphs = xml.split(/<w:p[ >]/).slice(1);
+  const lines = paragraphs.map(pSeg => {
+    const texts = [];
+    const re = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
+    let m;
+    while ((m = re.exec(pSeg)) !== null) texts.push(m[1]);
+    const joined = texts.join('');
+    return joined
+      .replace(/&lt;/g, String.fromCharCode(60))
+      .replace(/&gt;/g, String.fromCharCode(62))
+      .replace(new RegExp("&"+"quot;","g"), String.fromCharCode(34))
+      .replace(new RegExp("&"+"apos;","g"), String.fromCharCode(39))
+      .replace(/&amp;/g, String.fromCharCode(38));
+  });
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/* 导入后进编辑页，让用户确认名字再保存 */
+function openImported(card) {
+  const p = {
+    id: uid('a_'),
+    name: card.name || '',
+    avatar: '',
+    tag: card.tag || '导入',
+    relation: card.relation || '',
+    persona: card.persona || ''
+  };
+  state.archive.push(p);
+  save();
+  archiveEditId = p.id;
+  archiveView = 'detail';
+  renderArchiveApp();
+  toast('已导入，确认信息后点保存');
+}
+
+function renderArchiveDetail() {
+  const isNew = !archiveEditId;
+  const p = isNew
+    ? { id: null, name: '', avatar: '', tag: '', relation: '', persona: '' }
+    : (state.archive || []).find(x => x.id === archiveEditId);
+  if (!p) { archiveView = 'list'; return renderArchiveList(); }
+  const code = isNew ? '待归档' : archiveCodeOf(p);
+
+  appView.innerHTML = `
+    <div class="app-header">
+      <button class="back-btn" id="arcBackList">‹ 档案</button>
+      <h1>${isNew ? '新建档案' : '角色档案'}</h1>
+      <button class="header-btn" id="arcSave">保存</button>
+    </div>
+    <div class="app-body">
+      <div class="arc-detail-photo">
+        <div class="arc-detail-avatar ${p.avatar ? 'has-image' : ''}" id="arcAvatar">${p.avatar ? `<img src="${p.avatar}" alt="">` : `<span>${esc((p.name || '?')[0])}</span>`}</div>
+        <div class="arc-detail-code">${esc(code)}</div>
+      </div>
+      <div class="card">
+        <div class="field"><label>名字</label><input type="text" id="arcName" value="${esc(p.name || '')}" placeholder="角色名字" maxlength="20"></div>
+        <div class="field"><label>档案标签</label><input type="text" id="arcTag" value="${esc(p.tag || '')}" placeholder="例如：旧友 / 同事 / 陌生人" maxlength="16"></div>
+        <div class="field" style="margin-bottom:0;"><label>关系</label><input type="text" id="arcRelation" value="${esc(p.relation || '')}" placeholder="和你的关系" maxlength="20"></div>
+      </div>
+      <div class="card">
+        <div class="field" style="margin-bottom:0;"><label>人设资料</label>
+          <textarea id="arcPersona" style="min-height:180px;" placeholder="性格、经历、说话方式、背景……">${esc(p.persona || '')}</textarea>
+        </div>
+      </div>
+      <input type="file" id="arcAvatarFile" accept="image/*" hidden>
+      ${!isNew ? `<div class="btn-row" style="margin-top:14px;">
+        <button class="btn btn-ghost" id="arcToChat">加入聊天</button>
+        <button class="btn btn-danger" id="arcDelete">删除档案</button>
+      </div>` : ''}
+    </div>
+  `;
+
+  $('#arcBackList').onclick = () => { archiveView = 'list'; renderArchiveApp(); };
+  $('#arcAvatar').onclick = () => $('#arcAvatarFile').click();
+  $('#arcAvatarFile').onchange = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try {
+      const url = await fileToDataURL(f, 600, .9);
+      const el = $('#arcAvatar');
+      el.classList.add('has-image');
+      el.innerHTML = `<img src="${url}" alt="">`;
+      el.dataset.picked = url;
+    } catch (err) { toast('图片处理失败'); }
+    e.target.value = '';
+  };
+  $('#arcSave').onclick = () => {
+    const name = ($('#arcName').value || '').trim();
+    if (!name) { toast('先给它起个名字'); return; }
+    const avEl = $('#arcAvatar');
+    const pickedAvatar = avEl.dataset.picked !== undefined ? avEl.dataset.picked : (p.avatar || '');
+    if (isNew) {
+      const card = {
+        id: uid('a_'), name,
+        avatar: pickedAvatar,
+        tag: ($('#arcTag').value || '').trim(),
+        relation: ($('#arcRelation').value || '').trim(),
+        persona: $('#arcPersona').value || ''
+      };
+      state.archive.push(card);
+      archiveCodeOf(card);
+    } else {
+      p.name = name;
+      p.avatar = pickedAvatar;
+      p.tag = ($('#arcTag').value || '').trim();
+      p.relation = ($('#arcRelation').value || '').trim();
+      p.persona = $('#arcPersona').value || '';
+    }
+    save();
+    toast('已归档');
+    archiveView = 'list';
+    renderArchiveApp();
+  };
+  if (!isNew) {
+    $('#arcToChat').onclick = () => { touchFriendFromArchive(p); };
+    $('#arcDelete').onclick = () => {
+      if (!confirm('删除这份档案？聊天记录不会一起删除。')) return;
+      state.archive = state.archive.filter(x => x.id !== p.id);
+      save();
+      archiveView = 'list';
+      renderArchiveApp();
+    };
+  }
+}
+
+/* 从档案把角色变成聊天对象 */
+function touchFriendFromArchive(p) {
+  const exist = state.friends.find(f => f.name === p.name && (f.avatar || '') === (p.avatar || ''));
+  if (exist) {
+    save();
+    archiveView = 'list';
+    currentApp = 'chat';
+    activeFriendId = exist.id;
+    chatSubView = 'chat';
+    chatTab = 'chat';
+    appView.classList.add('active');
+    $('#screen').dataset.mode = 'app';
+    renderChatApp();
+    return;
+  }
+  const f = {
+    id: uid('f_'),
+    name: p.name,
+    avatar: p.avatar || '',
+    persona: p.persona || '',
+    messages: [],
+    chatSettings: { language: 'auto', translation: false, voiceFreq: 'occasional', voicePresetId: null },
+    archiveCode: p.archiveCode || archiveCodeOf(p)
+  };
+  state.friends.push(f);
+  save();
+  toast(p.name + ' 已加入聊天');
+  archiveView = 'list';
+  renderArchiveApp();
+}
+
+/* 从档案选择角色加入聊天（多选） */
+function renderArchivePicker() {
+  const files = state.archive || [];
+  const cards = files.map(p => {
+    const inChat = state.friends.some(f => f.name === p.name && (f.avatar || '') === (p.avatar || ''));
+    const sel = archivePickSel.has(p.id);
+    const av = p.avatar ? `<img src="${p.avatar}" alt="">` : `<span>${esc((p.name || '?')[0])}</span>`;
+    return `<div class="arc-file ${sel ? 'picked' : ''} ${inChat ? 'in-chat' : ''}" data-id="${p.id}">
+      <div class="arc-photo">${av}</div>
+      <div class="arc-info">
+        <div class="arc-code">${esc(p.archiveCode || '')}</div>
+        <div class="arc-name">${esc(p.name)}</div>
+        <div class="arc-tag">${inChat ? '已在聊天' : esc(p.tag || p.relation || '未归类')}</div>
+      </div>
+      <div class="arc-pick">${sel ? '✓' : ''}</div>
+    </div>`;
+  }).join('');
+
+  appView.innerHTML = `
+    <div class="app-header">
+      <button class="back-btn" id="apkCancel">取消</button>
+      <h1>从档案添加</h1>
+      <button class="header-btn" id="apkDone">完成${archivePickSel.size ? '(' + archivePickSel.size + ')' : ''}</button>
+    </div>
+    <div class="app-body flush" style="display:flex;flex-direction:column;padding:0;">
+      ${files.length ? `<div class="arc-list" id="apkList" style="padding-top:14px;">${cards}</div>`
+        : `<div class="empty-tip">档案室是空的<br>先去「档案」App 建立角色</div>`}
+    </div>
+  `;
+  $('#apkCancel').onclick = () => { archivePickSel.clear(); chatSubView = 'list'; renderChatApp(); };
+  $('#apkDone').onclick = () => {
+    const picked = (state.archive || []).filter(p => archivePickSel.has(p.id));
+    let added = 0;
+    picked.forEach(p => {
+      const exist = state.friends.find(f => f.name === p.name && (f.avatar || '') === (p.avatar || ''));
+      if (exist) return;
+      state.friends.push({
+        id: uid('f_'), name: p.name, avatar: p.avatar || '', persona: p.persona || '',
+        messages: [],
+        chatSettings: { language: 'auto', translation: false, voiceFreq: 'occasional', voicePresetId: null },
+        archiveCode: p.archiveCode
+      });
+      added++;
+    });
+    archivePickSel.clear();
+    save();
+    if (added) toast('已添加 ' + added + ' 位角色');
+    chatSubView = 'list';
+    renderChatApp();
+  };
+  const list = $('#apkList');
+  if (list) list.onclick = (e) => {
+    const fis = e.target.closest('.arc-file');
+    if (!fis) return;
+    const id = fis.dataset.id;
+    if (archivePickSel.has(id)) archivePickSel.delete(id); else archivePickSel.add(id);
+    renderArchivePicker();
+  };
+}
+
+function renderChatSettings() {
+  const friend = state.friends.find(f => f.id === activeFriendId);
+  if (!friend) { chatSubView = 'list'; return renderChatApp(); }
+  const cs = friend.chatSettings || { language: 'auto', translation: false, voiceFreq: 'occasional', voicePresetId: null };
+  
+  const langLabels = { auto: '自动 (跟随系统)', zh: '普通话', yue: '粤语', en: '英语', ja: '日语', ko: '韩语' };
+  const freqLabels = { never: '从不', occasional: '偶尔', often: '经常', always: '总是' };
+  const preset = state.voicePresets.find(v => v.id === cs.voicePresetId) || state.voicePresets.find(v => v.id === state.activeVoicePresetId);
+
+  appView.innerHTML = `
+    <div class="app-header">
+      <button class="back-btn" id="csBack">‹ 聊天</button>
+      <h1>聊天设置</h1>
+    </div>
+    <div class="app-body">
+      <div class="section-title">对话偏好</div>
+      <div class="card">
+        <div class="setting-row" id="csLangRow" style="cursor:pointer;">
+          <div class="setting-label">
+            <div class="setting-title">回复语言</div>
+            <div class="setting-desc">强制 AI 使用特定语言回复</div>
+          </div>
+          <div class="setting-val">${esc(langLabels[cs.language] || '自动')} <span class="li-chev">›</span></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <div class="setting-title">实时翻译</div>
+            <div class="setting-desc">收到非中文消息时自动显示译文</div>
+          </div>
+          <div class="switch ${cs.translation ? 'on' : ''}" id="csTransSwitch"></div>
+        </div>
+      </div>
+
+      <div class="section-title">语音偏好</div>
+      <div class="card">
+        <div class="setting-row" id="csFreqRow" style="cursor:pointer;">
+          <div class="setting-label">
+            <div class="setting-title">语音频率</div>
+            <div class="setting-desc">角色主动发送语音消息的概率</div>
+          </div>
+          <div class="setting-val">${esc(freqLabels[cs.voiceFreq] || '偶尔')} <span class="li-chev">›</span></div>
+        </div>
+        <div class="setting-row" id="csVoiceRow" style="cursor:pointer;">
+          <div class="setting-label">
+            <div class="setting-title">语音方案绑定</div>
+            <div class="setting-desc">为此角色指定专属音色</div>
+          </div>
+          <div class="setting-val">${esc(preset ? preset.name : '跟随全局默认')} <span class="li-chev">›</span></div>
+        </div>
+      </div>
+      
+      <div class="btn-row" style="margin-top:30px;">
+        <button class="btn btn-ghost" id="csEditPersona">修改角色人设</button>
+      </div>
+    </div>`;
+
+  $('#csBack').onclick = () => { chatSubView = 'chat'; renderChatApp(); };
+  $('#csTransSwitch').onclick = () => { cs.translation = !cs.translation; save(); renderChatSettings(); };
+  $('#csEditPersona').onclick = () => { editingFriendId = friend.id; _friendEditorFrom = 'settings'; chatSubView = 'editor'; renderChatApp(); };
+  
+  $('#csLangRow').onclick = (e) => {
+    showPicker({
+      title: '回复语言',
+      items: Object.keys(langLabels).map(k => ({ label: langLabels[k], value: k })),
+      activeValue: cs.language,
+      anchor: e.currentTarget,
+      onSelect: (val) => { cs.language = val; save(); renderChatSettings(); if (typeof renderMessages === 'function') try { renderMessages(friend); } catch (e) {} }
+    });
+  };
+  $('#csFreqRow').onclick = (e) => {
+    showPicker({
+      title: '语音频率',
+      items: Object.keys(freqLabels).map(k => ({ label: freqLabels[k], value: k })),
+      activeValue: cs.voiceFreq,
+      anchor: e.currentTarget,
+      onSelect: (val) => { cs.voiceFreq = val; save(); renderChatSettings(); }
+    });
+  };
+  $('#csVoiceRow').onclick = (e) => {
+    const items = [{ label: '跟随全局默认', value: '' }, ...state.voicePresets.map(v => ({ label: v.name, value: v.id }))];
+    showPicker({
+      title: '绑定语音方案',
+      items,
+      activeValue: cs.voicePresetId || '',
+      anchor: e.currentTarget,
+      onSelect: (val) => { cs.voicePresetId = val || null; save(); renderChatSettings(); }
+    });
+  };
+}
+
 function renderFriendList() {
   const friends = [...state.friends].sort((a, b) => {
     const ta = a.messages[a.messages.length - 1]?.ts || 0;
@@ -11432,7 +12384,7 @@ function renderFriendList() {
     </div>
     ${chatTabBarHTML()}
   `;
-  $('#friendAdd').onclick = () => { editingFriendId = null; chatSubView = 'editor'; renderFriendEditor(); };
+  $('#friendAdd').onclick = () => { archivePickSel.clear(); chatSubView = 'archive'; renderChatApp(); };
   $('#friendList').onclick = (e) => {
     const item = e.target.closest('.friend-item');
     if (!item) return;
@@ -11450,6 +12402,7 @@ function renderFriendList() {
     });
   }
 }
+let _friendEditorFrom = 'list';   // list | settings
 function renderFriendEditor() {
   const isNew = !editingFriendId;
   const friend = isNew ? { id: null, name: '', avatar: '', persona: '' } : state.friends.find(f => f.id === editingFriendId);
@@ -11504,7 +12457,11 @@ function renderFriendEditor() {
       toast('已导入人设');
     } catch (err) { toast('导入失败：' + (err.message || err)); }
   };
-  $('#backToFriends').onclick = () => { editingFriendId = null; chatSubView = 'list'; renderFriendList(); };
+  $('#backToFriends').onclick = () => {
+    editingFriendId = null;
+    if (_friendEditorFrom === 'settings') { _friendEditorFrom = 'list'; chatSubView = 'settings'; return renderChatApp(); }
+    chatSubView = 'list'; renderFriendList();
+  };
   $('#saveFriend').onclick = () => {
     const name = nameInput.value.trim() || '未命名';
     const persona = personaInput.value.trim();
@@ -11545,7 +12502,7 @@ function renderChatView() {
     <div class="app-header">
       <button class="back-btn" id="backToFriends">‹ 聊天</button>
       <h1>${esc(friend.name)}</h1>
-      <button class="header-btn" id="editFriend">编辑</button>
+      <button class="header-btn" id="chatSetBtn" style="padding:6px;"><svg width="22" height="22" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M34 24C34 29.5228 29.5228 34 24 34C18.4772 34 14 29.5228 14 24C14 18.4772 18.4772 14 24 14C29.5228 14 34 18.4772 34 24Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/><path d="M44 24H38" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 24H4" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M38.1421 10.1421L34.1421 14.1421" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.8579 34.1421L9.8579 38.1421" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M24 4V10" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M24 38V44" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.85787 10.1421L11.8579 14.1421" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M36.1421 34.1421L40.1421 38.1421" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
     <div class="app-body flush" id="chatBody" style="padding:0;">
       <div class="chat-list" id="chatList"></div>
@@ -11564,10 +12521,483 @@ function renderChatView() {
     <input type="file" id="chatImageFile" accept="image/*" hidden>
   `;
   $('#backToFriends').onclick = () => { chatSubView = 'list'; activeFriendId = null; renderFriendList(); };
-  $('#editFriend').onclick = () => { editingFriendId = friend.id; chatSubView = 'editor'; renderFriendEditor(); };
+  const _setBtn = $('#chatSetBtn');
+  if (_setBtn) _setBtn.onclick = () => { chatSubView = 'settings'; renderChatApp(); };
+  const _cl = $('#chatList');
+  if (_cl) _cl.__voiceBound = false;
   renderMessages(friend);
   bindChatEvents(friend);
+  bindVoiceBubbles(friend);
 }
+/* ============================================================
+   ★ 语音条：点击播放 / 长按转文字
+   ============================================================ */
+function bindVoiceBubbles(friend) {
+  const list = $('#chatList');
+  if (!list || list.__voiceBound) return;
+  list.__voiceBound = true;
+
+  /* 点击语音条播放；译文卡点一下展开/收起。长按转文字改由长按菜单提供 */
+  list.addEventListener('click', (e) => {
+    const card = e.target.closest('.trans-card');
+    if (card) { card.classList.toggle('collapsed'); return; }
+    const el = e.target.closest('.bubble.voice');
+    if (el) playVoiceBubble(el, friend);
+  });
+}
+
+/* ============================================================
+   ★ 语音音频缓存（按“文本+音色指纹”缓存 blob，点过就能秒播）
+   ============================================================ */
+const _voiceAudioCache = new Map();   // key -> Blob
+const _voiceAudioPending = new Map(); // key -> Promise<Blob>
+const VOICE_CACHE_LIMIT = 40;
+
+function voiceCacheKey(text, cfg) {
+  const sig = [cfg && cfg.provider, cfg && cfg.voiceId, cfg && cfg.model, cfg && cfg.speed, cfg && cfg.emotion].join('|');
+  return sig + '||' + String(text || '');
+}
+
+/* 把 blob 塞进缓存，超出上限丢最旧的 */
+function _voiceCachePut(key, blob) {
+  if (_voiceAudioCache.size >= VOICE_CACHE_LIMIT) {
+    const first = _voiceAudioCache.keys().next().value;
+    if (first !== undefined) _voiceAudioCache.delete(first);
+  }
+  _voiceAudioCache.set(key, blob);
+}
+
+/* 拿到音频：优先缓存 → 复用在途请求 → 真正合成 */
+async function getVoiceBlob(text, cfg) {
+  const key = voiceCacheKey(text, cfg);
+  if (_voiceAudioCache.has(key)) return _voiceAudioCache.get(key);
+  if (_voiceAudioPending.has(key)) return _voiceAudioPending.get(key);
+  const p = (async () => {
+    const blob = await synthesizeSpeech(text, cfg, null);
+    if (!blob || !blob.size) throw new Error('语音合成没有返回音频');
+    _voiceCachePut(key, blob);
+    return blob;
+  })();
+  _voiceAudioPending.set(key, p);
+  try {
+    return await p;
+  } finally {
+    _voiceAudioPending.delete(key);
+  }
+}
+
+/* ============================================================
+   ★ 语音条 播放 / 转文字
+   ============================================================ */
+let _voicePlayingEl = null;
+
+async function playVoiceBubble(el, friend) {
+  const text = el.dataset.voiceText || '';
+  if (!text) return;
+  const wave = el.querySelector('.voice-wave');
+  if (_voicePlayingEl === el) return; /* 同一条正在播，忽略重复点击 */
+
+  const cfg = getVoiceCfg(friend);
+  if (!cfg || !cfg.provider) { toast('先去「聊天设置 → 语音方案」配一个音色'); return; }
+  if (!cfg.key) { toast('语音方案的 API Key 还没填'); return; }
+
+  /* 先占位，避免连点触发多次合成 */
+  _voicePlayingEl = el;
+  el.dataset.playing = '1';
+  if (wave) wave.classList.add('playing');
+
+  const finish = () => {
+    el.dataset.playing = '0';
+    if (wave) wave.classList.remove('playing');
+    if (_voicePlayingEl === el) _voicePlayingEl = null;
+  };
+
+  /* 没缓存就提示“生成中”，有过缓存就直接播 */
+  const key = voiceCacheKey(text, cfg);
+  const cached = _voiceAudioCache.get(key);
+  if (!cached) {
+    el.classList.add('generating');
+    toast('语音生成中…');
+  }
+
+  /* ★ 兜底：无论成功失败，最多 60 秒后必须解除这条的占用，
+     否则一旦某次的 ended 事件没触发，后面所有语音点了都没反应 */
+  let _unlockTimer = setTimeout(() => { finish(); }, 60000);
+
+  try {
+    const blob = await getVoiceBlob(text, cfg);
+    el.classList.remove('generating');
+    const player = await playBlobViaAudioContext(blob);
+    if (player) {
+      const done = () => { clearTimeout(_unlockTimer); finish(); };
+      player.addEventListener('ended', done);
+      player.addEventListener('pause', done);
+      player.addEventListener('error', done);
+      /* 不依赖事件的保险：按时长 + 2 秒 */
+      _unlockTimer = setTimeout(done, (voiceSeconds(text) + 2) * 1000);
+    } else {
+      clearTimeout(_unlockTimer);
+      finish();
+    }
+  } catch (e) {
+    clearTimeout(_unlockTimer);
+    el.classList.remove('generating');
+    finish();
+    toast(friendlyError(e));
+  }
+}
+
+/* 页面静止时，把最近一条 AI 语音在后台悄悄合成好，点一下立刻出声 */
+async function prewarmVoice(friend, msg) {
+  try {
+    const cs = (friend && friend.chatSettings) || {};
+    if (cs.voiceFreq === 'never') return;
+    let text = String(msg && msg.text || '');
+    text = fixVoiceTags(text);
+    const m = text.match(/\[语音\]([\s\S]*?)\[\/语音\]/);
+    if (!m) return;
+    const speak = m[1].trim();
+    if (!speak) return;
+    const cfg = getVoiceCfg(friend);
+    if (!cfg || !cfg.key) return;
+    await getVoiceBlob(speak, cfg);
+  } catch (_) { /* 预生成失败无所谓，点击时还会再试 */ }
+}
+
+/* 长按 -> 转文字（若开了翻译，同时出译文） */
+/* ★ 把译文缓存到元素上，收起再展开时直接复用，不再重新请求 */
+function _cachedVoiceTrans(el) {
+  if (el.dataset.voiceTransCached) return el.dataset.voiceTransCached;
+  const inline = (el.dataset.voiceTrans || '').trim();
+  return inline;
+}
+
+async function showVoiceText(el, friend) {
+  const text = el.dataset.voiceText || '';
+  const box = document.getElementById('vt_' + el.dataset.voiceId);
+  if (!box || !text) return;
+
+  /* 收起 */
+  if (box.dataset.shown === '1') {
+    box.style.display = 'none';
+    box.dataset.shown = '0';
+    return;
+  }
+
+  box.style.display = 'block';
+  box.dataset.shown = '1';
+
+  /* ★ 先查缓存：之前翻译过就直接渲染出来，不会再空白一下 */
+  const cached = _cachedVoiceTrans(el);
+  if (cached) {
+    box.innerHTML = `<div class="voice-trans-inner">${esc(text)}</div>` + transCardHTML(cached, false);
+    return;
+  }
+
+  box.innerHTML = `<div class="voice-trans-inner">${esc(text)}</div>`;
+
+  const cs = (friend && friend.chatSettings) || {};
+  if (!cs.translation) return;
+  /* ★ 翻译方向固定中文：角色用什么语言说，就翻成中文给用户看 */
+  if (!needTranslate(text, 'zh')) return;
+
+  box.innerHTML += `<div class="voice-trans-loading">翻译中…</div>`;
+  try {
+    const zh = await translateText(text, '简体中文');
+    /* ★ 缓存下来，收起再点开仍然有译文 */
+    el.dataset.voiceTransCached = zh;
+    el.dataset.translated = '1';
+    box.innerHTML = `<div class="voice-trans-inner">${esc(text)}</div>` + transCardHTML(zh, false);
+  } catch (_) {
+    box.innerHTML = `<div class="voice-trans-inner">${esc(text)}</div>`;
+    if (box.dataset.shown === '1' && el.isConnected) {
+      /* 失败不清缓存，下次点击还能再试 */
+    }
+  }
+}
+
+/* ============================================================
+   ★ 翻译
+   ============================================================ */
+
+/* 翻译缓存：同一句话不重复请求（内存级，刷新即失效） */
+const _transCache = new Map();
+function _transCacheKey(text, target) { return target + '||' + text; }
+
+/* 判断一段文本是否需要翻译：只要不是纯中文就需要 */
+function needTranslate(text, target) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  if (target !== 'zh') return /[一-鿿]/.test(t);
+  if (!/[一-鿿]/.test(t)) return true;          /* 没中文 -> 肯定要翻 */
+  /* 有中文：但如果同时有大量假名/谬文/韩文，也要翻 */
+  const total = t.replace(/\s/g, '').length || 1;
+  const han = (t.match(/[一-鿿]/g) || []).length;
+  return han / total < 0.55;
+}
+
+/* ★ 译文调度：模型已在 //译// 里内联给出译文，这里只补“缺口”
+   规则：
+   - voice 段完全不自动翻译（用户要求：语音条只在长按转文字时才出译文）
+   - text 段若已有 part.trans 就不再请求
+   - 只有历史遗留消息（没有 part.trans）才走一次补翻译，结果仍写 transMap 作兜底 */
+async function maybeTranslateMessage(friend, msg) {
+  const cs = (friend && friend.chatSettings) || {};
+  if (!cs.translation) return;
+  const text = String(msg && msg.text || '');
+  if (!text) return;
+
+  const target = 'zh';
+  const targetLabel = '简体中文';
+
+  const segments = text.split(/\s*\|\|\|+\s*/).map(x => x.trim()).filter(Boolean);
+  const jobs = [];
+  segments.forEach((seg, si) => {
+    const parts = parseSegment(seg);
+    parts.forEach((pt, pi) => {
+      /* ★ 语音条一律不自动翻译 */
+      if (pt.type !== 'text') return;
+      const raw = String(pt.content || '').trim();
+      if (!raw) return;
+      /* ★ 模型已内联给出译文：跳过 */
+      if (pt.trans && String(pt.trans).trim()) return;
+      const clean = stripVoiceTagsForTranslate(raw);
+      if (!needTranslate(clean, target)) return;
+      jobs.push({ key: si + '_' + pi, src: clean });
+    });
+  });
+  if (!jobs.length) return;
+
+  msg.transMap = msg.transMap || {};
+  const rest = [];
+  jobs.forEach(job => {
+    const key = _transCacheKey(job.src, target);
+    if (_transCache.has(key)) msg.transMap[job.key] = _transCache.get(key);
+    else rest.push(job);
+  });
+  if (!rest.length) {
+    save();
+    rerenderChatIfVisible(friend);
+    return;
+  }
+  if (Object.keys(msg.transMap).length) {
+    save();
+    rerenderChatIfVisible(friend);
+  }
+  try {
+    await Promise.all(rest.map(async (job) => {
+      const key = _transCacheKey(job.src, target);
+      try {
+        const out = await translateText(job.src, targetLabel, target);
+        if (!out) return;
+        _transCache.set(key, out);
+        msg.transMap[job.key] = out;
+      } catch (_) { /* 单条失败不影响别的 */ }
+    }));
+    save();
+    rerenderChatIfVisible(friend);
+  } catch (_) {}
+}
+
+/* 重绘聊天区（并保持滚动位置在底部附近） */
+function rerenderChatIfVisible(friend) {
+  const list = $('#chatList');
+  if (!list || !list.isConnected) return;
+  const body = $('#chatBody');
+  const nearBottom = body ? (body.scrollHeight - body.scrollTop - body.clientHeight < 160) : true;
+  renderMessages(friend);
+  if (nearBottom) scrollChat();
+}
+
+/* 翻译只送正文，去掉语音标签 */
+function stripVoiceTagsForTranslate(text) {
+  return String(text || '').replace(/\[[\/]?语音\]/g, '').replace(/\[表情[:：][^\]]*\]/g, '').trim();
+}
+
+/* 调用主模型翻译；带超时，避免卡死 */
+/* ============================================================
+   ★ 语言层：先保证角色原文说对语言，再把它翻成中文
+   —— 不再“发现中文就翻成外语”，那是方向错了
+   ============================================================ */
+
+/* 语言代码 -> 查询用的字符集特征 */
+const LANG_SCRIPT = {
+  zh: { label: '简体中文', re: /[一-鿿]/ },
+  yue: { label: '粤语', re: /[一-鿿]/ },
+  en: { label: 'English', re: /[A-Za-z]/ },
+  ja: { label: '日本語', re: /[぀-ヿ]/ },
+  ko: { label: '한국어', re: /[가-힯]/ }
+};
+
+/* 这段文字是否确实是目标语言 */
+function textMatchesLang(text, lang) {
+  const t = String(text || '');
+  if (!t.trim()) return true;
+  const spec = LANG_SCRIPT[lang];
+  if (!spec) return true;
+  if (lang === 'zh' || lang === 'yue') {
+    /* 中文：有中文字，且日文假名不能占主导 */
+    const han = (t.match(/[一-鿿]/g) || []).length;
+    const kana = (t.match(/[぀-ヿ]/g) || []).length;
+    return han > 0 && kana === 0;
+  }
+  if (lang === 'ja') {
+    /* 日语：必须出现假名，且不能是纯中文 */
+    return spec.re.test(t) && (t.match(/[぀-ヿ]/g) || []).length >= 2;
+  }
+  if (lang === 'ko') {
+    return spec.re.test(t) && !/[一-鿿]/.test(t);
+  }
+  /* 英文等：必须有字母，且不能大量中文 */
+  return spec.re.test(t) && !/[一-鿿]/.test(t);
+}
+
+/* 把一条 AI 回复里的文字/语音内容提出来，便于判语言 */
+function collectSpeakableSegments(text) {
+  const out = [];
+  String(text || '').split(/\s*\|\|\|\s*/).forEach(seg => {
+    const parts = parseSegment(seg);
+    parts.forEach(pt => {
+      if (pt.type === 'text' || pt.type === 'voice') {
+        const clean = String(pt.content || '').trim();
+        if (clean) out.push(clean);
+      }
+    });
+  });
+  return out;
+}
+
+/* ★ 强制推轮：如果角色说的不是设定语言，就让它重写一遍
+   与参考实现的思路一致：不拿中文去做“翻译补救”，而是让原文就对 */
+async function enforceReplyLanguage(friend, replyText) {
+  const cs = (friend && friend.chatSettings) || {};
+  const lang = cs.language && cs.language !== 'auto' ? cs.language : '';
+  if (!lang || lang === 'zh') return replyText;
+
+  /* ★ 拆成 [段][片] 结构，只改文字/语音内容，保住 [语音] 标签和表情位置 */
+  const segTexts = String(replyText || '').split(/\s*\|\|\|\s*/);
+  const plan = segTexts.map(seg => parseSegment(seg));
+  const lines = [];
+  plan.forEach(parts => parts.forEach(pt => {
+    if (pt.type === 'text' || pt.type === 'voice') {
+      const c = String(pt.content || '').trim();
+      if (c) lines.push(c);
+    }
+  }));
+  if (!lines.length) return replyText;
+  if (textMatchesLang(lines.join(' '), lang)) return replyText;
+
+  const spec = LANG_SCRIPT[lang] || { label: '简体中文' };
+  const api = state.apis.find(a => a.id === state.activeApiId);
+  if (!api || !api.url || !api.key || !api.model) return replyText;
+
+  let fixed = null;
+  try {
+    const baseUrl = normalizeBaseUrl(api.url);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 25000);
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      signal: ctrl.signal,
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.key}` },
+      body: JSON.stringify({
+        model: api.model,
+        temperature: 0.3,
+        max_tokens: 1000,
+        stream: false,
+        messages: [
+          { role: 'system', content:
+            `你是语言改写器。用户会给你若干条「角色发出去的消息」，逐条改写成地道的${spec.label}。\n` +
+            '规则：\n' +
+            '1. 只保留角色直接说出口的话，去掉旁白、动作描写、角色名。\n' +
+            '2. 条数必须完全对应，顺序不变，不要合并也不要拆分。\n' +
+            `3. 每条都必须是${spec.label}，绝不能出现中文。\n` +
+            '4. 不要翻译成中文，不要解释。\n' +
+            '5. 输出严格 JSON：{"lines":["第1条","第2条"]}' },
+          { role: 'user', content: JSON.stringify({ lines }) }
+        ]
+      })
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json();
+      let raw = String(data?.choices?.[0]?.message?.content || '').trim();
+      raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/```$/, '').trim();
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m) {
+        try {
+          const obj = JSON.parse(m[0]);
+          if (Array.isArray(obj.lines) && obj.lines.length === lines.length) {
+            fixed = obj.lines.map(x => String(x || '').trim());
+          }
+        } catch (_) {}
+      }
+      /* 兜底：模型没给 JSON，就按行拆 */
+      if (!fixed) {
+        const rows = raw.split(/\n+/).map(x => x.replace(/^\s*[-*\d.、"']+\s*/, '').replace(/["']$/, '').trim()).filter(Boolean);
+        if (rows.length === lines.length) fixed = rows;
+      }
+    }
+  } catch (_) { return replyText; }
+
+  if (!fixed || !fixed.length) return replyText;
+  if (fixed.some(t => !t)) return replyText;
+  if (!textMatchesLang(fixed.join(' '), lang)) return replyText;   /* 改写没成功就别动 */
+
+  /* ★ 按原结构回填：文字还是文字，语音还是 [语音]…[/语音]
+     译文（//译//）要保住，否则改完语言译文全丢，又得等第二次请求 */
+  let cursor = 0;
+  const rebuilt = plan.map(parts => parts.map(pt => {
+    if (pt.type === 'sticker') return `[表情:${pt.sticker && pt.sticker.name ? pt.sticker.name : ''}]`;
+    if (pt.type === 'text' || pt.type === 'voice') {
+      const c = String(pt.content || '').trim();
+      if (!c) return '';
+      const t = fixed[cursor++] || c;
+      const tr = String(pt.trans || '').trim();
+      if (pt.type === 'voice') return `[语音]${t}[/语音]` + (tr ? `//译//${tr}` : '');
+      return t + (tr ? `//译//${tr}` : '');
+    }
+    return '';
+  }).filter(Boolean).join('\n')).filter(Boolean).join('\n|||\n');
+
+  return rebuilt || replyText;
+}
+
+async function translateText(text, targetLabel, targetCode) {
+  const t = String(text || '').trim();
+  if (!t) return '';
+  const api = state.apis.find(a => a.id === state.activeApiId);
+  if (!api || !api.url || !api.key || !api.model) throw new Error('没有可用的模型');
+  const baseUrl = normalizeBaseUrl(api.url);
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      signal: ctrl.signal,
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.key}` },
+      body: JSON.stringify({
+        model: api.model,
+        temperature: 0.1,
+        max_tokens: 800,
+        stream: false,
+        messages: [
+          { role: 'system', content: `你是翻译器。把用户给的内容翻译成${targetLabel || '简体中文'}。只输出译文本身：不要解释、不要加引号、不要保留原文、不要任何前后缀。如果内容已经是${targetLabel || '简体中文'}，原样返回。` },
+          { role: 'user', content: t }
+        ]
+      })
+    });
+    if (!res.ok) throw new Error('翻译失败');
+    const data = await res.json();
+    let out = data?.choices?.[0]?.message?.content || '';
+    out = String(out).trim().replace(/^["'“”「」]+|["'“”「」]+$/g, '');
+    return out;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function bindChatEvents(friend) {
   const input = $('#chatInput'); const send = $('#chatSend');
   const panel = $('#stickerPanel'); const openStickerBtn = $('#openSticker');
@@ -11607,11 +13037,14 @@ function bindChatEvents(friend) {
   setTimeout(scrollChat, 30);
 }
 function attachLongPressToChat(list, friend) {
-  let timer = null, startX = 0, startY = 0, moved = false, targetEl = null;
-  const start = (x, y, el) => {
+  let timer = null, startX = 0, startY = 0, moved = false, targetEl = null, targetBubble = null;
+  const start = (x, y, el, bubble) => {
     cancel();
-    startX = x; startY = y; moved = false; targetEl = el;
-    timer = setTimeout(() => { timer = null; if (!moved && targetEl) handleLongPress(targetEl, x, y, friend); }, 380);
+    startX = x; startY = y; moved = false; targetEl = el; targetBubble = bubble;
+    timer = setTimeout(() => {
+      timer = null;
+      if (!moved && targetEl) handleLongPress(targetEl, x, y, friend, targetBubble);
+    }, 380);
   };
   const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } targetEl = null; };
   const move = (x, y) => { if (Math.abs(x - startX) > 8 || Math.abs(y - startY) > 8) { moved = true; cancel(); } };
@@ -11619,7 +13052,7 @@ function attachLongPressToChat(list, friend) {
     const bubble = e.target.closest('.bubble'); if (!bubble) return;
     const msgEl = bubble.closest('[data-msg-index]'); if (!msgEl) return;
     const t = e.touches[0];
-    start(t.clientX, t.clientY, msgEl);
+    start(t.clientX, t.clientY, msgEl, bubble);
   }, { passive: true });
   list.addEventListener('touchmove', (e) => { if (!timer) return; const t = e.touches[0]; move(t.clientX, t.clientY); }, { passive: true });
   list.addEventListener('touchend', cancel);
@@ -11628,22 +13061,50 @@ function attachLongPressToChat(list, friend) {
     const bubble = e.target.closest('.bubble'); if (!bubble) return;
     const msgEl = bubble.closest('[data-msg-index]'); if (!msgEl) return;
     e.preventDefault();
-    handleLongPress(msgEl, e.clientX, e.clientY, friend);
+    handleLongPress(msgEl, e.clientX, e.clientY, friend, bubble);
   });
 }
-function handleLongPress(msgEl, x, y, friend) {
+function handleLongPress(msgEl, x, y, friend, bubbleEl) {
   const msgIndex = parseInt(msgEl.dataset.msgIndex, 10);
   if (isNaN(msgIndex)) return;
   const msg = friend.messages[msgIndex]; if (!msg) return;
   const isAI = msg.role === 'assistant';
-  const hasText = !!(msg.text && msg.text.trim());
-  const faved = isFavorited(friend, msg);
+
+  /* ★ 以“被长按的那个气泡”为单位，而不是整条消息 */
+  const coord = bubbleCoord(bubbleEl);
+  const target = coord ? pickBubble(msg, coord) : null;
+  const hasBubble = !!(target && (target.kind === 'text' || target.kind === 'voice'));
+  const singleText = hasBubble ? target.text : '';
+
   const items = [];
-  if (hasText) items.push({ icon: ICONS.copy, label: '复制', onClick: async () => { const ok = await copyToClipboard(msg.text); toast(ok ? '已复制' : '复制失败'); } });
-  items.push({ icon: faved ? ICONS.starFilled : ICONS.star, label: faved ? '取消收藏' : '收藏', onClick: () => { if (faved) removeFavoriteByMsg(friend, msg); else addFavorite(friend, msg); } });
+  const copyText = hasBubble ? singleText : (msg.text || '');
+  if (copyText && copyText.trim()) {
+    items.push({ icon: ICONS.copy, label: '复制', onClick: async () => {
+      const ok = await copyToClipboard(copyText);
+      toast(ok ? '已复制' : '复制失败');
+    } });
+  }
+
+  /* ★ 收藏：有气泡坐标就只收这一个气泡 */
+  const faved = isFavorited(friend, msg, coord);
+  items.push({ icon: faved ? ICONS.starFilled : ICONS.star, label: faved ? '取消收藏' : '收藏', onClick: () => {
+    if (faved) removeFavoriteByMsg(friend, msg, coord);
+    else addFavorite(friend, msg, coord);
+  } });
+
+  /* ★ 语音条：菜单里提供“转文字” */
+  const voiceEl = (bubbleEl && bubbleEl.classList.contains('voice')) ? bubbleEl : msgEl.querySelector('.bubble.voice');
+  if (voiceEl) {
+    items.unshift({ icon: ICONS.chat, label: '转文字', onClick: () => showVoiceText(voiceEl, friend) });
+  }
+
   if (isAI) {
-    items.push({ icon: ICONS.edit, label: '修改', onClick: () => editMessage(friend, msgIndex) });
-    items.push({ icon: ICONS.refresh, label: '重新生成', onClick: () => regenerateMessage(friend, msgIndex) });
+    /* ★ 修改：只改这一个气泡 */
+    items.push({ icon: ICONS.edit, label: '修改', onClick: () => editMessage(friend, msgIndex, coord) });
+    /* 重新生成作用于整条回复，所以只在“没有细分气泡”或气泡就是整条时给 */
+    if (!hasBubble || explodeMessage(msg).filter(b => b.kind === 'text' || b.kind === 'voice').length <= 1) {
+      items.push({ icon: ICONS.refresh, label: '重新生成', onClick: () => regenerateMessage(friend, msgIndex) });
+    }
   }
   items.push({ icon: ICONS.trash, label: '删除', danger: true, onClick: () => deleteMessage(friend, msgIndex) });
   showLongPressMenu(x, y, items);
@@ -11702,8 +13163,19 @@ function showEditModal(initialText) {
 $('#editCancel').onclick = () => { if (_editModalResolve) _editModalResolve(null); };
 $('#editSave').onclick = () => { const val = $('#editTextarea').value; if (_editModalResolve) _editModalResolve(val); };
 $('#editModal').addEventListener('click', (e) => { if (e.target.id === 'editModal') { if (_editModalResolve) _editModalResolve(null); } });
-async function editMessage(friend, msgIndex) {
+async function editMessage(friend, msgIndex, coord) {
   const msg = friend.messages[msgIndex]; if (!msg) return;
+  /* ★ 有气泡坐标：只编辑那一个气泡的内容 */
+  const target = coord ? pickBubble(msg, coord) : null;
+  if (target && (target.kind === 'text' || target.kind === 'voice')) {
+    const result = await showEditModal(target.text || '');
+    if (result === null) return;
+    const ok = replaceBubbleText(msg, coord, result);
+    if (!ok) { toast('修改失败'); return; }
+    save(); renderMessages(friend); toast('已修改');
+    return;
+  }
+  /* 没有坐标（老消息/表情/图片）：退回整条编辑 */
   const result = await showEditModal(msg.text || '');
   if (result === null) return;
   msg.text = result;
@@ -11742,26 +13214,125 @@ function deleteMessage(friend, msgIndex) {
   friend.messages.splice(msgIndex, 1);
   save(); renderMessages(friend); toast('已删除');
 }
-function isFavorited(friend, msg) {
-  if (!friend || !msg) return false;
-  const text = msg.text || ''; const ts = msg.ts || 0;
-  return state.favorites.some(f => f.friendId === friend.id && f.msgTs === ts && f.text === text);
+/* ============================================================
+   ★ 气泡级定位：把“一条消息（可能含多个气泡）”拆成可单独操作的小块
+   —— 编辑/收藏/复制都以“一个气泡”为单位，而不是整段 |||
+   ============================================================ */
+
+/* 从 DOM 元素读出它属于第几段、第几片 */
+function bubbleCoord(el) {
+  if (!el) return null;
+  const seg = parseInt(el.dataset.seg, 10);
+  const part = parseInt(el.dataset.part, 10);
+  if (isNaN(seg) || isNaN(part)) return null;
+  return { seg, part };
 }
-function addFavorite(friend, msg) {
+
+/* 把整条消息拆成 [{seg, part, kind, text, trans, sticker, image, voice}] */
+function explodeMessage(msg) {
+  const out = [];
+  if (!msg) return out;
+  if (msg.sticker) { out.push({ seg: 0, part: 0, kind: 'sticker', sticker: msg.sticker }); return out; }
+  if (msg.image) { out.push({ seg: 0, part: 0, kind: 'image', image: msg.image }); return out; }
+  const segments = String(msg.text || '').trim().split(/\s*\|\|\|+\s*/).map(x => x.trim()).filter(Boolean);
+  const transMap = msg.transMap || null;
+  segments.forEach((segText, si) => {
+    const parts = parseSegment(segText);
+    parts.forEach((pt, pi) => {
+      const t = pt.trans || (transMap && transMap[si + '_' + pi]) || '';
+      if (pt.type === 'voice') out.push({ seg: si, part: pi, kind: 'voice', text: pt.content, trans: t });
+      else if (pt.type === 'text') out.push({ seg: si, part: pi, kind: 'text', text: pt.content, trans: t });
+      else if (pt.type === 'sticker') out.push({ seg: si, part: pi, kind: 'sticker', sticker: pt.sticker });
+    });
+  });
+  return out;
+}
+
+/* 取某个坐标的气泡数据；坐标缺失就返回整条 */
+function pickBubble(msg, coord) {
+  if (!coord) return null;
+  const list = explodeMessage(msg);
+  return list.find(b => b.seg === coord.seg && b.part === coord.part) || null;
+}
+
+/* ★ 关键：只替换/删除指定那一个气泡，其余原样保留（含 //译// 译文） */
+function replaceBubbleText(msg, coord, newText) {
+  if (!msg) return false;
+  /* 表情/图片：只改整体文本里没法定位，直接不管 */
+  const segments = String(msg.text || '').split(/\s*\|\|\|+\s*/);
+  if (coord.seg >= segments.length) return false;
+  const segText = segments[coord.seg];
+  const parts = parseSegment(segText);
+  const pt = parts[coord.part];
+  if (!pt) return false;
+
+  const buildPart = (p) => {
+    if (p.type === 'voice') {
+      return '[语音]' + p.content + '[/语音]' + (p.trans ? '//译//' + p.trans : '');
+    }
+    return p.content + (p.trans ? '//译//' + p.trans : '');
+  };
+
+  /* 用新文本替换目标片的内容，译文清空（改了原文旧译文就不准了） */
+  pt.content = String(newText || '').trim();
+  if (pt.type === 'text') pt.trans = '';
+  else if (pt.type === 'voice') pt.trans = pt.trans || '';
+
+  segments[coord.seg] = parts.filter(p => p.type !== 'sticker' ? (p.content && p.content.trim()) : true).map(buildPart).join('\n');
+  msg.text = segments.map(x => x.trim()).filter(Boolean).join('\n|||\n');
+  if (msg.transMap) delete msg.transMap[coord.seg + '_' + coord.part];
+  return true;
+}
+
+/* ★ 收藏现在以“一个气泡”为单位：用 seg/part 精确定位 */
+function isFavorited(friend, msg, coord) {
+  if (!friend || !msg) return false;
+  const ts = msg.ts || 0;
+  if (coord) {
+    return state.favorites.some(f =>
+      f.friendId === friend.id && f.msgTs === ts &&
+      f.seg === coord.seg && f.part === coord.part);
+  }
+  /* 没有坐标：检查整条是否被收藏过（seg/part 都为 null 的老收藏） */
+  return state.favorites.some(f => f.friendId === friend.id && f.msgTs === ts && (f.seg == null));
+}
+function addFavorite(friend, msg, coord) {
+  const target = coord ? pickBubble(msg, coord) : null;
+  /* 单个气泡收藏 或 整条收藏 */
+  let text = '', kind = 'text', sticker = null, image = null, trans = '';
+  if (target) {
+    kind = target.kind;
+    text = target.text || '';
+    trans = target.trans || '';
+    if (target.kind === 'sticker' && target.sticker) sticker = { name: target.sticker.name, url: target.sticker.url };
+    if (target.kind === 'image') image = target.image;
+  } else {
+    text = msg.text || '';
+    kind = msg.sticker ? 'sticker' : (msg.image ? 'image' : 'text');
+    if (msg.sticker) sticker = { name: msg.sticker.name, url: msg.sticker.url };
+    if (msg.image) image = msg.image;
+    if (msg.trans) trans = String(msg.trans);
+  }
   const fav = {
     id: uid('fav_'),
     friendId: friend.id, friendName: friend.name || '好友', friendAvatar: friend.avatar || '',
-    role: msg.role, text: msg.text || '',
-    sticker: msg.sticker ? { name: msg.sticker.name, url: msg.sticker.url } : null,
-    image: msg.image || null,
+    role: msg.role, text, kind, trans,
+    seg: coord ? coord.seg : null, part: coord ? coord.part : null,
+    sticker, image,
     msgTs: msg.ts || Date.now(), savedAt: Date.now(), note: ''
   };
   state.favorites.push(fav); save(); toast('已收藏');
 }
-function removeFavoriteByMsg(friend, msg) {
-  const text = msg.text || ''; const ts = msg.ts || 0;
+function removeFavoriteByMsg(friend, msg, coord) {
+  const ts = msg.ts || 0;
   const before = state.favorites.length;
-  state.favorites = state.favorites.filter(f => !(f.friendId === friend.id && f.msgTs === ts && f.text === text));
+  if (coord) {
+    state.favorites = state.favorites.filter(f =>
+      !(f.friendId === friend.id && f.msgTs === ts && f.seg === coord.seg && f.part === coord.part));
+  } else {
+    state.favorites = state.favorites.filter(f =>
+      !(f.friendId === friend.id && f.msgTs === ts));
+  }
   if (state.favorites.length < before) { save(); toast('已取消收藏'); return true; }
   return false;
 }
@@ -11796,7 +13367,17 @@ function openNoteDetail(favId) {
 function closeNoteDetail() { $('#noteDetailModal').classList.remove('show'); _noteDetailFavId = null; }
 function renderNoteDetailContent(fav) {
   let html = '';
-  if (fav.text) html += `<div>${esc(fav.text)}</div>`;
+  if (fav.kind === 'voice') {
+    const sec = voiceSeconds(fav.text);
+    html += `<div class="note-detail-voice">` +
+      `<span class="note-voice-wave"><i></i><i></i><i></i></span>` +
+      `<span class="note-voice-dur">${sec}''</span>` +
+      `</div>`;
+    if (fav.trans) html += `<div class="note-detail-trans">${esc(fav.trans)}</div>`;
+  } else {
+    if (fav.text) html += `<div>${esc(fav.text)}</div>`;
+    if (fav.trans) html += `<div class="note-detail-trans">${esc(fav.trans)}</div>`;
+  }
   if (fav.sticker) html += `<img class="note-detail-sticker" src="${fav.sticker.url}" alt="${esc(fav.sticker.name)}">`;
   if (fav.image) html += `<img class="note-detail-image" src="${fav.image}" alt="">`;
   return html || '<div style="color:#a89070;">（空）</div>';
@@ -11837,17 +13418,22 @@ function renderMessages(friend) {
       let inner;
       if (m.sticker) inner = `<div class="bubble sticker"><img src="${m.sticker.url}" alt=""></div>`;
       else if (m.image) inner = `<div class="bubble image-bubble" data-lightbox="${m.image}"><img src="${m.image}" alt=""></div>`;
-      else inner = `<div class="bubble tri-right">${esc(m.text)}</div>`;
+      else {
+        /* ★ 用户消息也可能带 [语音] 标签（AI 用错标签时也能正确显示） */
+        const uparts = parseSegment(m.text);
+        const uvoice = uparts.some(x => x.type === 'voice');
+        inner = uvoice ? renderPartsAsHTML(uparts, { friend, segIndex: 0 }) : `<div class="bubble tri-right">${esc(m.text)}</div>`;
+      }
       return `<div class="msg user" data-msg-index="${i}">
         <div class="msg-content">${inner}</div>
         <div class="msg-avatar">${userAvatarHTML()}</div>
       </div>`;
     }
-    return assistantBubbles(m.text, i, friend);
+    return assistantBubbles(m.text, i, friend, m);
   }).join('');
   scrollChat();
 }
-function assistantBubbles(raw, msgIndex, friend) {
+function assistantBubbles(raw, msgIndex, friend, msg) {
   const segments = String(raw ?? '').trim().split(/\s*\|\|\|+\s*/).map(s => s.trim()).filter(Boolean);
   if (!segments.length) {
     return `<div class="msg assistant" data-msg-index="${msgIndex}">
@@ -11855,9 +13441,31 @@ function assistantBubbles(raw, msgIndex, friend) {
       <div class="msg-content"></div>
     </div>`;
   }
-  return segments.map(seg => {
+  const cs = (friend && friend.chatSettings) || {};
+  /* ★ 译文优先级：part.trans（模型同一条回复内联给出）> msg.transMap（历史消息补翻译兜底）
+     voice 段一律不挂译文，只在长按转文字时显示 */
+  const transMap = (msg && msg.transMap) || null;
+  const showTrans = !!cs.translation;
+  const segCount = segments.length;
+  const transFlat = msg && msg.trans ? String(msg.trans) : '';
+  return segments.map((seg, si) => {
     const parts = parseSegment(seg);
-    const inner = renderPartsAsHTML(parts);
+    if (!parts.length) return '';
+    let inner = '';
+    parts.forEach((pt, pi) => {
+      /* ★ 把 transMap 里的旧数据贴回 part.trans，让渲染层统一走一条路 */
+      if (!pt.trans && transMap) {
+        const k = si + '_' + pi;
+        if (transMap[k]) pt.trans = transMap[k];
+      }
+      /* 兼容最老的数据：整条消息只有一个 msg.trans，挂到最后一段文字下面 */
+      if (!pt.trans && transFlat && si === segCount - 1 && pi === parts.length - 1 && pt.type === 'text') {
+        pt.trans = transFlat;
+      }
+      /* ★ 语音不显示译文卡 */
+      if (pt.type === 'voice') pt.trans = '';
+      inner += renderPartHTML(pt, { friend, segIndex: si }, pi);
+    });
     if (!inner) return '';
     return `<div class="msg assistant" data-msg-index="${msgIndex}">
       <div class="msg-avatar">${friendAvatarHTML(friend)}</div>
@@ -11865,8 +13473,133 @@ function assistantBubbles(raw, msgIndex, friend) {
     </div>`;
   }).join('');
 }
+/* ★ 把模型只给开标签的 [语音]补上闭合（到行尾）：不用正则，避免转义坑 */
+function fixVoiceTags(t) {
+  if (!t || t.indexOf('[语音]') < 0) return t;
+  const OPEN = '[语音]', CLOSE = '[/语音]';
+  let out = '', i = 0;
+  while (i < t.length) {
+    const a = t.indexOf(OPEN, i);
+    if (a < 0) { out += t.slice(i); break; }
+    out += t.slice(i, a);
+    const rest = t.slice(a + OPEN.length);
+    const b = rest.indexOf(CLOSE);
+    const eol = rest.indexOf('\n');
+    if (b >= 0 && (eol < 0 || b < eol)) {
+      /* 已有闭合标签 */
+      out += OPEN + rest.slice(0, b) + CLOSE;
+      i = a + OPEN.length + b + CLOSE.length;
+    } else {
+      /* 只有开标签：一直到行尾 */
+      const lineEnd = eol < 0 ? rest.length : eol;
+      out += OPEN + rest.slice(0, lineEnd) + CLOSE;
+      i = a + OPEN.length + lineEnd;
+    }
+  }
+  return out;
+}
+/* ★ 拆出内联译文："原文//译//译文" -> {src, trans} */
+function splitInlineTrans(raw) {
+  const t = String(raw || '');
+  const M = '//译//';
+  const i = t.indexOf(M);
+  if (i >= 0) {
+    let src = t.slice(0, i).trim();
+    let trans = t.slice(i + M.length).trim();
+    /* ★ 模型偶尔会把标记和译文写成 【//译//译文】 或 【译】译文 或 【译文】译文
+       把包在译文外面的全角括号剥掉，避免界面上冒出孤零零的 【 】 */
+    const L = '【', R = '】';
+    if (src.endsWith(L)) src = src.slice(0, -1).trim();
+    if (trans.startsWith(R)) trans = trans.slice(1).trim();
+    if (trans.startsWith(L) && trans.endsWith(R)) trans = trans.slice(1, -1).trim();
+    if (trans.startsWith(R) && trans.endsWith(L)) trans = trans.slice(1, -1).trim();
+    trans = trans.replace(/^(译文|译)[：:】]?/, '').trim();
+    src = src.replace(/\/\/译\/\/$/, '').trim();
+    return { src, trans };
+  }
+  /* ★ 模型没写 //译//，而是写成 【译】译文 / 【译文】译文 / 【译文：译文 */
+  const alt = t.match(/^([\s\S]*?)【\s*(?:\/\/)?(?:译文|译)\s*[：:]?\s*([\s\S]*?)\s*】\s*$/);
+  if (alt) return { src: alt[1].trim(), trans: alt[2].trim() };
+  /* ★ 【译文】写在括号里、正文在括号后："【译】你好" 这种整句就是译文的情况也兜住 */
+  const alt2 = t.match(/^([\s\S]*?)【\s*(?:译文|译)\s*】([\s\S]+)$/);
+  if (alt2) return { src: alt2[1].trim(), trans: alt2[2].trim() };
+  /* ★ 兜底：句尾只残留一个孤立的【或】，直接丢掉 */
+  let cleaned = t.replace(/[【】]+\s*$/, '').trim();
+  if (cleaned !== t) return { src: cleaned, trans: '' };
+  /* ★ 流式打字机可能只打了一半标记（"/"、"//"、"//译"、"//译/"）：
+     把尾部这半截切掉，避免用户看到闪现的标记 */
+  for (let n = M.length - 1; n >= 1; n--) {
+    const frag = M.slice(0, n);
+    if (cleaned.endsWith(frag)) return { src: cleaned.slice(0, cleaned.length - n).trim(), trans: '' };
+  }
+  return { src: cleaned, trans: '' };
+}
+
+/* ★ 解析一段（||| 分隔后的一段）：
+   - [语音]原文[/语音]  -> {type:'voice', content, trans}
+   - 原文//译//译文      -> {type:'text', content, trans}
+   - [表情:xx]          -> sticker
+   译文不再单独请求，而是模型在同一条回复里带出来的 */
 function parseSegment(seg) {
   const parts = [];
+  seg = fixVoiceTags(seg);
+
+  const OPEN = '[语音]', CLOSE = '[/语音]';
+  let rest = String(seg || '');
+
+  /* 先处理所有语音块 */
+  const chunks = [];
+  let guard = 0;
+  while (guard++ < 200) {
+    const a = rest.indexOf(OPEN);
+    if (a < 0) break;
+    const b = rest.indexOf(CLOSE, a + OPEN.length);
+    if (b < 0) break;
+    if (a > 0) chunks.push({ k: 'plain', v: rest.slice(0, a) });
+    const speakSrc = rest.slice(a + OPEN.length, b).trim();
+    /* 语音后面紧跟的 //译//译文 归这条语音 */
+    let after = rest.slice(b + CLOSE.length);
+    let trans = '';
+    const m = after.match(/^\s*\/\/译\/\/([^\n]*)/);
+    if (m) { trans = m[1].trim(); after = after.slice(m[0].length); }
+    /* 语音内容本身也可能带 //译// */
+    if (!trans) {
+      const sp = splitInlineTrans(speakSrc);
+      chunks.push({ k: 'voice', v: sp.src, trans: sp.trans });
+    } else {
+      chunks.push({ k: 'voice', v: speakSrc, trans });
+    }
+    rest = after;
+  }
+  if (rest) chunks.push({ k: 'plain', v: rest });
+
+  chunks.forEach(ch => {
+    if (ch.k === 'voice') {
+      if (ch.v) parts.push({ type: 'voice', content: ch.v, trans: ch.trans || '' });
+      return;
+    }
+    /* 普通文本：可能含多个 //译// 段，按行处理 */
+    String(ch.v).split('\n').forEach(line => {
+      if (!line.trim()) return;
+      const sp = splitInlineTrans(line);
+      /* 去掉残留的空 //译// 标记 */
+      const srcClean = sp.src.replace(/\/\/译\/\//g, '').trim();
+      if (srcClean) {
+        parsePlainChunk(srcClean, parts);
+        if (sp.trans) {
+          /* 把译文挂到刚压入的最后一个 text part 上 */
+          for (let i = parts.length - 1; i >= 0; i--) {
+            if (parts[i].type === 'text') { parts[i].trans = sp.trans; break; }
+          }
+        }
+      }
+    });
+  });
+
+  return parts;
+}
+
+function parsePlainChunk(seg, parts) {
   const re = /\[表情[:：]\s*([^\]]+)\]/g;
   let last = 0, m;
   while ((m = re.exec(seg)) !== null) {
@@ -11885,17 +13618,93 @@ function parseSegment(seg) {
   if (rest) parts.push({ type: 'text', content: rest });
   return parts;
 }
-function renderPartsAsHTML(parts) {
+function renderPartsAsHTML(parts, ctx) {
   if (!parts.length) return '';
-  return parts.map(p => {
-    if (p.type === 'text') {
-      const clean = p.content.replace(/\n\s*\n/g, '\n').trim();
-      if (!clean) return '';
-      return `<div class="bubble tri-left">${esc(clean)}</div>`;
-    }
-    return `<div class="bubble sticker"><img src="${p.sticker.url}" alt="${esc(p.sticker.name)}"></div>`;
-  }).join('');
+  return parts.map((p, i) => renderPartHTML(p, ctx, i)).join('');
 }
+
+/* ★ 给气泡打上“第几段第几片”的坐标，长按/编辑/收藏都靠它精确定位单个气泡 */
+function partLoc(ctx, pi) {
+  const seg = (ctx && typeof ctx === 'object' && ctx.segIndex != null) ? ctx.segIndex : 0;
+  return ` data-seg="${seg}" data-part="${pi}"`;
+}
+
+/* 渲染单个片段：文字气泡 / 语音条 / 表情 */
+function renderPartHTML(p, ctx, pi) {
+  const loc = partLoc(ctx, pi);
+  if (p.type === 'text') {
+    const clean = p.content.replace(/\n\s*\n/g, '\n').trim();
+    if (!clean) return '';
+    /* ★ 内联译文：模型在同一条回复里带出来的中文译文，直接跟着气泡渲染 */
+    const inline = (p.trans && String(p.trans).trim()) ? transCardHTML(String(p.trans).trim(), true) : '';
+    return `<div class="bubble tri-left"${loc}>${esc(clean)}</div>` + inline;
+  }
+  /* ★ 语音条不显示译文卡：译文只在长按转文字时出现 */
+  if (p.type === 'voice') return voiceBubbleHTML(p.content, ctx, (p.trans || ''), loc);
+  if (p.type === 'sticker') {
+    return `<div class="bubble sticker"${loc}><img src="${p.sticker.url}" alt="${esc(p.sticker.name)}"></div>`;
+  }
+  return '';
+}
+
+/* 估算语音时长：中文约 4 字/秒 */
+function voiceSeconds(text) {
+  const n = String(text || '').length;
+  return Math.max(1, Math.min(60, Math.round(n / 4)));
+}
+
+/* ★ 微信式语音条宽度：1 秒最窄 76px，60 秒最宽 200px，线性增长 */
+function voiceBarWidth(sec) {
+  const s = Math.max(1, Math.min(60, sec));
+  /* 1 秒 88px，60 秒 216px：比之前稍宽一点，像微信 */
+  return Math.round(88 + (s - 1) / 59 * 128);
+}
+
+/* ★ 语音条 HTML：宽度一经确定不再变化，不随转文字/播放改变 */
+let _voiceSeq = 0;
+function voiceBubbleHTML(text, ctx, afterTrans, loc) {
+  const sec = voiceSeconds(text);
+  const id = 'v' + (++_voiceSeq);
+  const w = voiceBarWidth(sec);
+  /* 用实体编码，避免任何引号破坏属性 */
+  const safe = String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(new RegExp(String.fromCharCode(34), 'g'), String.fromCharCode(34, 38, 113, 117, 111, 116, 59))
+    .replace(/'/g, '&#39;')
+    .replace(/\n/g, ' ');
+  /* ★ 模型随语音给出的中文译文：先藏进属性，转文字时直接用，不再二次请求 */
+  let transSafe = '';
+  if (afterTrans) {
+    transSafe = String(afterTrans)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(new RegExp(String.fromCharCode(34), 'g'), '&quot;')
+      .replace(/'/g, String.fromCharCode(38, 35, 51, 57, 59))
+      .replace(/\n/g, ' ');
+  }
+  return `<div class="voice-block" data-sec="${sec}">` +
+    `<div class="bubble voice" style="width:${w}px;" data-voice-id="${id}" data-voice-text="${safe}" data-voice-sec="${sec}" data-voice-trans="${transSafe}"${loc || ''}>` +
+    `<span class="voice-wave"><span></span><span></span><span></span></span>` +
+    `<span class="voice-dur">${sec}''</span>` +
+    `</div>` +
+    `<div class="voice-trans" id="vt_${id}" style="display:none;"></div>` +
+  `</div>`;
+}
+
+/* ★ 译文卡片：折叠时只露出「译文」两个字，展开后才是完整卡片 */
+function transCardHTML(text, collapsed) {
+  return `<div class="trans-wrap"><div class="trans-card${collapsed ? ' collapsed' : ''}">` +
+    `<button class="trans-head" type="button">` +
+      `<span class="trans-dot"></span><span class="trans-head-txt">译文</span>` +
+      `<span class="trans-caret">⌄</span>` +
+    `</button>` +
+    `<div class="trans-body"><div class="trans-content">${esc(text)}</div></div>` +
+  `</div></div>`;
+}
+
 function ensureActiveBubble(list, s) {
   if (s.activeBubbleEl && s.activeBubbleEl.parentNode) return s.activeBubbleEl;
   const wrapper = document.createElement('div');
@@ -11921,7 +13730,7 @@ function startTypewriter(list, s) {
     if (s.activeDisplayedText.length >= s.activeTargetText.length) { clearInterval(s.typewriterTimer); s.typewriterTimer = null; return; }
     s.activeDisplayedText = s.activeTargetText.slice(0, s.activeDisplayedText.length + 1);
     const bubble = ensureActiveBubble(list, s);
-    bubble.innerHTML = renderPartsAsHTML(parseSegment(s.activeDisplayedText));
+    bubble.innerHTML = renderPartsAsHTML(parseSegment(s.activeDisplayedText), s.friend);
     scrollChat();
   }, TYPE_INTERVAL);
 }
@@ -11931,7 +13740,7 @@ function streamUpdate(list, s, fullText) {
   const completedCount = segments.length - 1;
   if (completedCount > s.completedCount) {
     if (s.activeBubbleEl && s.activeBubbleEl.parentNode) {
-      s.activeBubbleEl.innerHTML = renderPartsAsHTML(parseSegment(s.activeTargetText));
+      s.activeBubbleEl.innerHTML = renderPartsAsHTML(parseSegment(s.activeTargetText), s.friend);
       s.renderedSegmentCount++;
     }
     if (s.typewriterTimer) { clearInterval(s.typewriterTimer); s.typewriterTimer = null; }
@@ -11940,7 +13749,7 @@ function streamUpdate(list, s, fullText) {
       if (seg) {
         const wrapper = document.createElement('div');
         wrapper.className = 'msg assistant';
-        wrapper.innerHTML = `<div class="msg-avatar">${friendAvatarHTML(s.friend)}</div><div class="msg-content">${renderPartsAsHTML(parseSegment(seg))}</div>`;
+        wrapper.innerHTML = `<div class="msg-avatar">${friendAvatarHTML(s.friend)}</div><div class="msg-content">${renderPartsAsHTML(parseSegment(seg), s.friend)}</div>`;
         list.appendChild(wrapper);
         if (Array.isArray(s.createdBubbles)) s.createdBubbles.push(wrapper);
       }
@@ -12055,7 +13864,11 @@ async function sendUserMessage(friend, payload) {
       if (list.parentNode) list.appendChild(errEl);
       scrollChat();
     }
-    if (fullReply && fullReply.trim()) friend.messages.push({ role: 'assistant', text: fullReply.trim(), ts: Date.now() });
+    /* ★ 报错时只留错误提示：半截回复不入库，否则下次会看到重复内容 */
+    if (fullReply && fullReply.trim()) {
+      const okEls = (s.createdBubbles || []).filter(el => el.parentNode);
+      if (!okEls.length) friend.messages.push({ role: 'assistant', text: fullReply.trim(), ts: Date.now() });
+    }
     friend.messages.push({ role: 'assistant', text: '⚠️ ' + friendlyError(e), ts: Date.now() });
     const errIdx = String(friend.messages.length - 1);
     (s.createdBubbles || []).forEach(el => { if (el.parentNode) el.dataset.msgIndex = errIdx; });
@@ -12067,6 +13880,10 @@ async function sendUserMessage(friend, payload) {
   s.typingEl = null;
   if (s.pauseTimer) { clearTimeout(s.pauseTimer); s.pauseTimer = null; }
   s.pausing = false;
+  /* ★ 先校验语言：角色说错语言就先改写，再上打字机 */
+  if (fullReply && fullReply.trim()) {
+    try { fullReply = await enforceReplyLanguage(friend, fullReply); } catch (_) {}
+  }
   const cleanReply = (fullReply && fullReply.trim()) ? fullReply.trim() : '';
   if (cleanReply) {
     const segments = cleanReply.split(/\s*\|\|\|+\s*/);
@@ -12090,9 +13907,13 @@ async function sendUserMessage(friend, payload) {
     return;
   }
   const aiIdx = String(friend.messages.length);
-  friend.messages.push({ role: 'assistant', text: cleanReply, ts: Date.now() });
+  const newMsg = { role: 'assistant', text: cleanReply, ts: Date.now() };
+  friend.messages.push(newMsg);
   (s.createdBubbles || []).forEach(el => { if (el.parentNode) el.dataset.msgIndex = aiIdx; });
   save(); sending = false; updateSendState();
+  maybeTranslateMessage(friend, newMsg);
+  /* ★ 后台预生成语音，点击才不会等 */
+  try { prewarmVoice(friend, newMsg); } catch (e) {}
   if (!list.isConnected) renderMessages(friend);
 }
 /* ============================================================
@@ -12879,7 +14700,19 @@ function noteHTML(fav) {
   const noteRot = ((hashCode(fav.id) % 7) - 3) * 0.5;
   const tapeColor = TAPE_COLORS[hashCode(fav.id) % 3];
   let contentHTML = '';
-  if (fav.text) contentHTML += `<div>${esc(fav.text)}</div>`;
+  if (fav.kind === 'voice') {
+    /* ★ 语音收藏：渲染成语音条，而不是把台词当普通文字贴上去 */
+    const sec = voiceSeconds(fav.text);
+    const w = Math.max(64, Math.min(132, Math.round(70 + (sec - 1) / 59 * 62)));
+    contentHTML += `<div class="note-voice" style="width:${w}px;" data-fav-voice="${fav.id}">` +
+      `<span class="note-voice-wave"><i></i><i></i><i></i></span>` +
+      `<span class="note-voice-dur">${sec}''</span>` +
+      `</div>`;
+    if (fav.trans) contentHTML += `<div class="note-trans">${esc(fav.trans)}</div>`;
+  } else {
+    if (fav.text) contentHTML += `<div>${esc(fav.text)}</div>`;
+    if (fav.trans) contentHTML += `<div class="note-trans">${esc(fav.trans)}</div>`;
+  }
   if (fav.sticker) contentHTML += `<img class="note-sticker" src="${fav.sticker.url}" alt="${esc(fav.sticker.name)}">`;
   if (fav.image) contentHTML += `<img class="note-image" src="${fav.image}" alt="">`;
   if (!contentHTML) contentHTML = '<div style="color:#a89070;">（空）</div>';
@@ -13757,321 +15590,568 @@ async function applyJsonTheme(json, presetName) {
 /* ============================================================
    API / 世界书 / 表情 / 设置
    ============================================================ */
-function renderApiApp() {
-  if (apiEditingId) return renderApiEditor();
-  const listHTML = state.apis.length
-    ? state.apis.map(a => {
-        const visionTag = useVisionFor(a) ? ' · 看图' : '';
-        return `<div class="list-item" data-id="${a.id}">
-          <div class="li-main"><div class="li-title">${esc(a.name || '未命名')}</div><div class="li-sub">${esc(a.url || '没填地址')} · ${esc(a.model || '没填模型')}${visionTag}</div></div>
-          ${a.id === state.activeApiId ? '<span class="li-badge">使用中</span>' : ''}
+/* ============================================================
+   ★★ API 配置（三大板块）
+   ------------------------------------------------------------
+   主模型 / 视觉模型 / 语音模型各自独立成页，不再挤在一张表单里。
+   - 主模型：可存多套预设，随时一键切换（不同供应商随意换）
+   - 视觉模型：留空即继承当前主模型的地址与 Key
+   - 语音模型：中转地址内置，用户只需选服务商 + 填 Key
+   ============================================================ */
+
+function getActiveApi() {
+  return state.apis.find(a => a.id === state.activeApiId) || null;
+}
+/* 视觉配置合并：视觉自己的值优先，留空则继承主模型 */
+function resolvedVision() {
+  const v = state.visionCfg || {};
+  const api = getActiveApi() || {};
+  return {
+    enabled: !!v.enabled,
+    model: (v.model && v.model.trim()) || '',
+    url: (v.url && v.url.trim()) || api.url || '',
+    key: (v.key && v.key.trim()) || api.key || '',
+    inheritUrl: !(v.url && v.url.trim()),
+    inheritKey: !(v.key && v.key.trim()),
+    inheritModel: !(v.model && v.model.trim())
+  };
+}
+/* 语音方案：解析某个角色最终该用哪套
+   优先级：角色专属绑定 > 全局默认方案 > 空配置 */
+function getVoiceCfg(friend) {
+  const presets = state.voicePresets || [];
+  let hit = null;
+  if (friend && friend.chatSettings && friend.chatSettings.voicePresetId) {
+    hit = presets.find(v => v.id === friend.chatSettings.voicePresetId) || null;
+  }
+  if (!hit) hit = presets.find(v => v.id === state.activeVoicePresetId) || null;
+  if (!hit) hit = presets[0] || null;
+  if (!hit) return {
+    provider: 'minimax', region: 'global',
+    key: '', voiceId: TTS_PROVIDER_DEFAULTS.minimax.voiceId,
+    model: TTS_PROVIDER_DEFAULTS.minimax.model,
+    emotion: 'happy', speed: 1.0, stability: 0.5, similarityBoost: 0.75
+  };
+  return hit;
+}
+/* 入口页副标题需要“是否有可用方案”这个判断 */
+function hasVoicePreset() {
+  const p = getVoiceCfg();
+  return !!(p && p.key && p.voiceId);
+}
+
+/* ============================================================
+   三大板块入口页
+   ============================================================ */
+
+/* ============================================================
+   ★ 浮动选择菜单 (Picker)
+   形态与项目里长按菜单一致：锚在触发元素旁，不遮屏、不贴底
+   ============================================================ */
+function showPicker({ title, items, activeValue, onSelect, anchor }) {
+  $$('.picker-pop').forEach(m => m.remove());
+
+  const pop = document.createElement('div');
+  pop.className = 'picker-pop';
+  const titleHTML = title ? `<div class="picker-pop-title">${esc(title)}</div>` : '';
+  pop.innerHTML = titleHTML + items.map((it, i) => `
+    <button class="picker-pop-item ${String(it.value) === String(activeValue) ? 'active' : ''}" data-idx="${i}" type="button">
+      <span class="picker-pop-label">${esc(it.label)}</span>
+      <span class="picker-pop-check">✓</span>
+    </button>`).join('');
+
+  const screenEl = $('#screen');
+  screenEl.appendChild(pop);
+
+  /* ---- 定位：优先显示在触发元素下方，放不下就翻到上方 ---- */
+  const sr = screenEl.getBoundingClientRect();
+  let anchorRect = null;
+  if (anchor && anchor.getBoundingClientRect) anchorRect = anchor.getBoundingClientRect();
+  else if (anchor && typeof anchor === 'object' && 'x' in anchor) anchorRect = { left: anchor.x, right: anchor.x, top: anchor.y, bottom: anchor.y, width: 0, height: 0 };
+
+  const pad = 12;
+  /* 用 offsetWidth/Height 量原始尺寸：getBoundingClientRect 会被 scale(.92) 缩小，导致算歪 */
+  const pw = pop.offsetWidth;
+  const ph = pop.offsetHeight;
+  let left, top;
+  if (anchorRect) {
+    /* 右边缘对齐触发元素，像系统菜单那样从点击处展开 */
+    left = (anchorRect.right - sr.left) - pw;
+    top = (anchorRect.bottom - sr.top) + 6;
+    if (left < pad) left = pad;
+    if (left + pw > sr.width - pad) left = sr.width - pw - pad;
+    if (top + ph > sr.height - pad) {
+      const above = (anchorRect.top - sr.top) - ph - 6;
+      top = above >= pad ? above : Math.max(pad, sr.height - ph - pad);
+    }
+  } else {
+    left = (sr.width - pw) / 2;
+    top = (sr.height - ph) / 2;
+  }
+  pop.style.left = Math.round(left) + 'px';
+  pop.style.top = Math.round(top) + 'px';
+
+  const close = () => {
+    pop.classList.remove('show');
+    setTimeout(() => { if (pop.parentNode) pop.remove(); }, 160);
+    document.removeEventListener('click', outside, true);
+    document.removeEventListener('touchstart', outside, true);
+  };
+  const outside = (e) => { if (!pop.contains(e.target)) close(); };
+  setTimeout(() => {
+    pop.classList.add('show');
+    document.addEventListener('click', outside, true);
+    document.addEventListener('touchstart', outside, true);
+  }, 0);
+
+  pop.addEventListener('click', (e) => {
+    const btn = e.target.closest('.picker-pop-item');
+    if (!btn) return;
+    const item = items[parseInt(btn.dataset.idx, 10)];
+    close();
+    if (item && typeof onSelect === 'function') setTimeout(() => onSelect(item.value), 0);
+  });
+}
+
+/* 语音方案入口页 (列表模式) */
+function renderVoiceEditor() {
+  if (apiEditingId) return renderVoicePresetForm();
+  const listHTML = state.voicePresets.length
+    ? state.voicePresets.map(v => {
+        const isActive = v.id === state.activeVoicePresetId;
+        return `<div class="list-item api-preset ${isActive ? 'active' : ''}" data-id="${v.id}">
+          <div class="api-preset-dot"></div>
+          <div class="li-main">
+            <div class="li-title">${esc(v.name || '未命名方案')}${isActive ? '<span class="li-badge">默认</span>' : ''}</div>
+            <div class="li-sub">${esc(TTS_PROVIDER_LABEL[v.provider] || 'MiniMax')} · ${esc(v.voiceId || '未选音色')}</div>
+          </div>
           <span class="li-chev">›</span>
         </div>`;
       }).join('')
-    : `<div class="empty-tip">还没有配置<br>点下面的按钮加一个</div>`;
-  appView.innerHTML = `${headerHTML('API 配置')}<div class="app-body"><div class="section-title">已保存的配置</div><div class="card"><div class="list" id="apiList">${listHTML}</div></div><button class="btn btn-primary" id="apiAdd">+ 新增配置</button><p class="hint">支持 OpenAI 格式的接口。</p></div>`;
-  $('#apiAdd').onclick = () => {
+    : `<div class="empty-tip">还没有语音方案<br>点下面按钮添加</div>`;
+
+  appView.innerHTML = `
+    <div class="app-header"><button class="back-btn" id="voBackList">‹ API</button><h1>语音方案</h1></div>
+    <div class="app-body">
+      <div class="section-title">方案预设 <span class="sec-tag">可针对角色单独绑定</span></div>
+      <div class="card"><div class="list" id="voList">${listHTML}</div></div>
+      <button class="btn btn-primary" id="voAdd">+ 新增语音方案</button>
+      <p class="hint">你可以创建多套语音方案（比如不同服务商或不同性别的音色），然后在具体角色的聊天设置里进行绑定。</p>
+    </div>`;
+
+  $('#voBackList').onclick = () => { apiView = 'list'; renderApiApp(); };
+  $('#voAdd').onclick = () => {
+    const np = 'minimax';
+    const nd = TTS_PROVIDER_DEFAULTS[np];
     const cfg = {
-      id: uid('a_'), name: '新配置', url: '', key: '', model: '', temperature: 0.8,
-      visionEnabled: false, visionModel: '', visionUrl: '', visionKey: '',
-      voice: {
-        provider: 'minimax',
-        region: 'global',
-        url: '',
-        key: '',
-        proxyUrl: '',
-        voiceId: TTS_PROVIDER_DEFAULTS.minimax.voiceId,
-        model: TTS_PROVIDER_DEFAULTS.minimax.model,
-        emotion: 'happy',
-        speed: 1.0,
-        stability: 0.5,
-        similarityBoost: 0.75
-      }
+      id: uid('v_'), name: '新语音方案', provider: np, 
+      key: '', voiceId: nd.voiceId, model: nd.model,
+      emotion: 'happy', speed: 1.0, stability: 0.5, similarityBoost: 0.75, region: 'global'
     };
-    state.apis.push(cfg); state.activeApiId = cfg.id; apiEditingId = cfg.id;
-    save(); renderApiEditor();
+    state.voicePresets.push(cfg);
+    if (!state.activeVoicePresetId) state.activeVoicePresetId = cfg.id;
+    save(); apiEditingId = cfg.id; renderVoicePresetForm();
   };
-  $('#apiList').onclick = (e) => {
+  $('#voList').onclick = (e) => {
     const item = e.target.closest('.list-item'); if (!item) return;
-    apiEditingId = item.dataset.id; state.activeApiId = apiEditingId;
-    save(); renderApiEditor();
+    apiEditingId = item.dataset.id;
+    renderVoicePresetForm();
   };
 }
 
-function renderApiEditor() {
-  const cfg = state.apis.find(a => a.id === apiEditingId);
-  if (!cfg) { apiEditingId = null; return renderApiApp(); }
-  const voice = cfg.voice || {};
-  const provider = voice.provider || 'minimax';
+function renderVoicePresetForm() {
+  const cfg = state.voicePresets.find(v => v.id === apiEditingId);
+  if (!cfg) { apiEditingId = null; return renderVoiceEditor(); }
+  const isActive = cfg.id === state.activeVoicePresetId;
+  const provider = cfg.provider || 'minimax';
   const vdef = TTS_PROVIDER_DEFAULTS[provider] || TTS_PROVIDER_DEFAULTS.minimax;
-  const vModel = voice.model || vdef.model;
-  const vVoiceId = voice.voiceId || '';
-  const vUrl = voice.url || '';
-  const vKey = voice.key || '';
-  const vEmotion = voice.emotion || vdef.emotion || 'happy';
-  const vSpeed = typeof voice.speed === 'number' ? voice.speed : (vdef.speed || 1.0);
-  const vStability = typeof voice.stability === 'number' ? voice.stability : (vdef.stability || 0.5);
-  const vSimilarity = typeof voice.similarityBoost === 'number' ? voice.similarityBoost : (vdef.similarityBoost || 0.75);
-  const vRegion = voice.region === 'cn' ? 'cn' : 'global';
-  const vProxyUrl = voice.proxyUrl || '';
 
   appView.innerHTML = `
-    <div class="app-header"><button class="back-btn" id="apiBack">‹ 配置</button><h1>编辑配置</h1><button class="header-btn" id="apiUse">${cfg.id === state.activeApiId ? '✓ 使用中' : '设为使用'}</button></div>
+    <div class="app-header">
+      <button class="back-btn" id="vpBack">‹ 方案</button>
+      <h1>编辑方案</h1>
+      <button class="header-btn" id="vpUse">${isActive ? '✓ 默认中' : '设为默认'}</button>
+    </div>
     <div class="app-body">
       <div class="card">
-        <div class="field"><label>名称</label><input type="text" id="fName" value="${esc(cfg.name)}" placeholder="我的中转站"></div>
-        <div class="field"><label>接口地址</label><input type="text" id="fUrl" value="${esc(cfg.url)}" placeholder="https://api.example.com" autocomplete="off" spellcheck="false"></div>
-        <div class="field"><label>API Key</label><input type="password" id="fKey" value="${esc(cfg.key)}" placeholder="sk-..." autocomplete="off" spellcheck="false"></div>
-        <div class="field">
-          <label>模型</label>
-          <div class="field-row"><input type="text" id="fModel" value="${esc(cfg.model)}" placeholder="手动输入，或点右边拉取" autocomplete="off" spellcheck="false"><button class="btn btn-ghost" id="fFetch">拉取</button></div>
-          <div class="model-chips" id="fChips"></div>
+        <div class="field"><label>方案名称</label><input type="text" id="vpName" value="${esc(cfg.name)}" placeholder="例如：温柔的姐姐 / 磁性大叔"></div>
+        <div class="setting-row" id="vpProviderRow" style="cursor:pointer;">
+          <div class="setting-label"><div class="setting-title">服务商</div><div class="setting-desc">点一下切换，只会用选中的这一个</div></div>
+          <div class="setting-val">${esc(TTS_PROVIDER_LABEL[provider] || 'MiniMax')} <span class="li-chev">›</span></div>
         </div>
-        <div class="field"><label>温度 <span id="fTempVal" style="color:#6e7d94;font-weight:600;">${cfg.temperature ?? 0.8}</span></label><input type="range" id="fTemp" min="0" max="2" step="0.1" value="${cfg.temperature ?? 0.8}" style="width:100%;accent-color:#8a9bb5;"></div>
+        <div class="field"><label>API Key</label><input type="password" id="vpKey" value="${esc(cfg.key || '')}" placeholder="填写对应服务商的 Key" autocomplete="off" spellcheck="false"></div>
       </div>
-      <div class="section-title">视觉能力（看图）</div>
-      <div class="card">
-        <div class="vision-row"><div class="vr-left"><div class="vr-title">启用看图能力</div><div class="vr-sub">开启后 AI 能看懂图片</div></div><div class="switch ${cfg.visionEnabled ? 'on' : ''}" id="fVisionSwitch"></div></div>
-        <div id="visionFields" style="display:${cfg.visionEnabled ? 'block' : 'none'};">
-          <div class="field"><label>视觉模型</label>
-            <div class="field-row"><input type="text" id="fVisionModel" value="${esc(cfg.visionModel || '')}" placeholder="例如 gpt-4o" autocomplete="off" spellcheck="false"><button class="btn btn-ghost" id="fVisionFetch">拉取</button></div>
-            <div class="model-chips" id="fVisionChips"></div>
-          </div>
-          <div class="field"><label>视觉接口地址（留空 = 用上面的地址）</label><input type="text" id="fVisionUrl" value="${esc(cfg.visionUrl || '')}" placeholder="留空就用主接口" autocomplete="off" spellcheck="false"></div>
-          <div class="field"><label>视觉 API Key（留空 = 用上面的 Key）</label><input type="password" id="fVisionKey" value="${esc(cfg.visionKey || '')}" placeholder="留空就用主 Key" autocomplete="off" spellcheck="false"></div>
-        </div>
-      </div>
-      <div class="section-title">语音模型（TTS）</div>
+
       <div class="card">
         <div class="field">
-          <label>服务商</label>
-          <div class="tts-provider-row" id="fVoiceProviderRow" data-active="${provider}">
-            <div class="tts-provider-chip ${provider === 'minimax' ? 'active' : ''}" data-provider="minimax">MiniMax</div>
-            <div class="tts-provider-chip ${provider === 'elevenlabs' ? 'active' : ''}" data-provider="elevenlabs">ElevenLabs</div>
-            <div class="tts-provider-chip ${provider === 'mossland' ? 'active' : ''}" data-provider="mossland">Mossland</div>
-          </div>
+          <label>音色 Voice ID</label>
+          <div class="field-row"><input type="text" id="vpVoiceId" value="${esc(cfg.voiceId || '')}" placeholder="填写或点右边拉取" autocomplete="off" spellcheck="false"><button class="btn btn-ghost" id="vpFetch">拉取音色</button></div>
+          <div class="model-chips" id="vpChips"></div>
+          ${provider === 'mossland' ? '<p class="hint">Moss 的音色需到官网「音色广场」复制 voice ID 后粘贴。</p>' : ''}
         </div>
-        <div class="tts-extra-field ${provider === 'minimax' ? 'show' : ''}" data-for="minimax">
-          <div class="field">
-            <label>区域（国内 / 海外 Key 不通用）</label>
-            <select id="fVoiceRegion" class="form-select">
-              <option value="global" ${vRegion === 'global' ? 'selected' : ''}>海外版 · api.minimax.io</option>
-              <option value="cn" ${vRegion === 'cn' ? 'selected' : ''}>国内版 · api.minimaxi.com</option>
-            </select>
-          </div>
+        <div class="field"><label>模型</label><input type="text" id="vpModel" value="${esc(cfg.model || '')}" placeholder="${esc(vdef.model)}" autocomplete="off" spellcheck="false"></div>
+
+        ${provider === 'minimax' ? `
+        <div class="field">
+          <label>区域</label>
+          <select id="vpRegion" class="form-select">
+            <option value="global" ${cfg.region === 'global' ? 'selected' : ''}>海外版 · api.minimax.io</option>
+            <option value="cn" ${cfg.region === 'cn' ? 'selected' : ''}>国内版 · api.minimaxi.com</option>
+          </select>
         </div>
         <div class="field">
-          <label>Voice ID</label>
-          <div class="field-row"><input type="text" id="fVoiceId" value="${esc(vVoiceId)}" placeholder="${provider === 'mossland' ? '去 Moss 官网复制音色 ID' : (provider === 'minimax' ? '点下方音色点选' : '填写或点右边拉取')}" autocomplete="off" spellcheck="false"><button class="btn btn-ghost" id="fVoiceFetch" style="${provider === 'mossland' ? 'display:none;' : ''}">拉取音色</button></div>
-          <div class="model-chips" id="fVoiceChips"></div>
-          <p class="hint" id="fVoiceIdHint" style="display:${provider === 'mossland' ? 'block' : 'none'};">Moss 的音色需自行到官网「音色广场」复制 voice ID 后粘贴到这里，无法自动拉取。</p>
-        </div>
-        <div class="field"><label>模型</label><input type="text" id="fVoiceModel" value="${esc(vModel)}" placeholder="${esc(vdef.model)}" autocomplete="off" spellcheck="false"></div>
-        <div class="field"><label>语音接口地址（留空 = 用默认 / 上面的地址）</label><input type="text" id="fVoiceUrl" value="${esc(vUrl)}" placeholder="留空用官方默认地址" autocomplete="off" spellcheck="false"></div>
-        <div class="field"><label>语音 API Key（留空 = 用上面的 Key）</label><input type="password" id="fVoiceKey" value="${esc(vKey)}" placeholder="留空就用主 Key" autocomplete="off" spellcheck="false"></div>
-        <div class="field"><label>中转地址（解决浏览器跨域拦截，强烈建议填）</label><input type="text" id="fVoiceProxyUrl" value="${esc(vProxyUrl)}" placeholder="${esc(TTS_PROXY_URL || 'https://你的worker地址.workers.dev')}" autocomplete="off" spellcheck="false"><p class="hint">纯前端 PWA 直连厂商会被浏览器 CORS 拦截，请填部署好的 Cloudflare Worker 中转地址。留空则尝试直连（大概率失败）。</p></div>
-        <div class="tts-extra-field ${provider === 'minimax' ? 'show' : ''}" data-for="minimax">
-          <div class="field">
-            <label>情绪</label>
-            <select id="fVoiceEmotion" class="form-select">
-              <option value="happy" ${vEmotion === 'happy' ? 'selected' : ''}>happy（开心）</option>
-              <option value="sad" ${vEmotion === 'sad' ? 'selected' : ''}>sad（悲伤）</option>
-              <option value="angry" ${vEmotion === 'angry' ? 'selected' : ''}>angry（生气）</option>
-              <option value="fearful" ${vEmotion === 'fearful' ? 'selected' : ''}>fearful（害怕）</option>
-              <option value="disgusted" ${vEmotion === 'disgusted' ? 'selected' : ''}>disgusted（厌恶）</option>
-              <option value="surprised" ${vEmotion === 'surprised' ? 'selected' : ''}>surprised（惊讶）</option>
-              <option value="neutral" ${vEmotion === 'neutral' ? 'selected' : ''}>neutral（中性）</option>
-            </select>
-          </div>
-          <div class="field"><label>语速 <span id="fVoiceSpeedVal" style="color:#6e7d94;font-weight:600;">${vSpeed}</span></label><input type="range" id="fVoiceSpeed" min="0.5" max="2.0" step="0.1" value="${vSpeed}" style="width:100%;accent-color:#8a9bb5;"></div>
-        </div>
-        <div class="tts-extra-field ${provider === 'elevenlabs' ? 'show' : ''}" data-for="elevenlabs">
-          <div class="field"><label>稳定性 <span id="fVoiceStabilityVal" style="color:#6e7d94;font-weight:600;">${vStability}</span></label><input type="range" id="fVoiceStability" min="0" max="1" step="0.05" value="${vStability}" style="width:100%;accent-color:#8a9bb5;"></div>
-          <div class="field"><label>相似度 <span id="fVoiceSimilarityVal" style="color:#6e7d94;font-weight:600;">${vSimilarity}</span></label><input type="range" id="fVoiceSimilarity" min="0" max="1" step="0.05" value="${vSimilarity}" style="width:100%;accent-color:#8a9bb5;"></div>
-        </div>
-        <div class="tts-extra-field ${provider === 'mossland' ? 'show' : ''}" data-for="mossland">
-          <div class="field"><label>语速 <span id="fVoiceSpeedVal" style="color:#6e7d94;font-weight:600;">${vSpeed}</span></label><input type="range" id="fVoiceSpeed" min="0.5" max="2.0" step="0.1" value="${vSpeed}" style="width:100%;accent-color:#8a9bb5;"></div>
-        </div>
-        <div class="field">
-          <label class="tts-preview-label">试听</label>
-          <div class="tts-preview-row">
-            <input type="text" id="fVoicePreviewText" class="tts-preview-input" value="${esc(TTS_PREVIEW_DEFAULT_TEXT)}" placeholder="输入试听文本，最多 100 字" maxlength="100">
-            <button class="tts-preview-btn" id="fVoicePreviewBtn" type="button">▶ 试听</button>
-          </div>
-        </div>
+          <label>情绪</label>
+          <select id="vpEmotion" class="form-select">
+            ${['happy:开心','sad:悲伤','angry:生气','fearful:害怕','disgusted:厌恶','surprised:惊讶','neutral:中性'].map(pair => {
+              const [v, label] = pair.split(':');
+              const cur = cfg.emotion || 'happy';
+              return `<option value="${v}" ${cur === v ? 'selected' : ''}>${label}</option>`;
+            }).join('')}
+          </select>
+        </div>` : ''}
+
+        ${provider === 'elevenlabs' ? `
+        <div class="field"><label>稳定性 <span id="vpStabVal" style="color:#6e7d94;font-weight:600;">${cfg.stability ?? 0.5}</span></label><input type="range" id="vpStability" min="0" max="1" step="0.05" value="${cfg.stability ?? 0.5}" style="width:100%;accent-color:#8a9bb5;"></div>
+        <div class="field"><label>相似度 <span id="vpSimVal" style="color:#6e7d94;font-weight:600;">${cfg.similarityBoost ?? 0.75}</span></label><input type="range" id="vpSim" min="0" max="1" step="0.05" value="${cfg.similarityBoost ?? 0.75}" style="width:100%;accent-color:#8a9bb5;"></div>` : ''}
+
+        <div class="field"><label>语速 <span id="vpSpeedVal" style="color:#6e7d94;font-weight:600;">${cfg.speed ?? 1.0}</span></label><input type="range" id="vpSpeed" min="0.5" max="2.0" step="0.1" value="${cfg.speed ?? 1.0}" style="width:100%;accent-color:#8a9bb5;"></div>
       </div>
-      <div class="btn-row"><button class="btn btn-primary" id="fSave">保存</button><button class="btn btn-danger" id="fDelete">删除</button></div>
+
+      <div class="section-title">试听</div>
+      <div class="card">
+        <div class="tts-preview-row">
+          <input type="text" id="vpPreviewText" class="tts-preview-input" value="${esc(TTS_PREVIEW_DEFAULT_TEXT)}" placeholder="输入试听文本，最多 100 字" maxlength="100">
+          <button class="tts-preview-btn" id="vpPreviewBtn" type="button">▶ 试听</button>
+        </div>
+        <p class="hint" style="margin-top:10px;">接口地址与跨域中转已内置，不需要填写。</p>
+      </div>
+
+      <div class="btn-row" style="margin-top:18px;"><button class="btn btn-danger" id="vpDel">删除此方案</button></div>
     </div>`;
 
-  const collectVoice = () => {
-    const provider = $('#fVoiceProviderRow').dataset.active || 'minimax';
-    const defaults = TTS_PROVIDER_DEFAULTS[provider] || TTS_PROVIDER_DEFAULTS.minimax;
+  const collect = () => {
     const v = {
-      provider,
-      url: ($('#fVoiceUrl') ? $('#fVoiceUrl').value.trim() : ''),
-      key: ($('#fVoiceKey') ? $('#fVoiceKey').value.trim() : ''),
-      voiceId: ($('#fVoiceId') ? $('#fVoiceId').value.trim() : ''),
-      model: ($('#fVoiceModel') ? $('#fVoiceModel').value.trim() : '') || defaults.model,
-      proxyUrl: ($('#fVoiceProxyUrl') ? $('#fVoiceProxyUrl').value.trim() : '')
+      name: $('#vpName').value.trim() || '未命名方案',
+      key: $('#vpKey').value.trim(),
+      voiceId: $('#vpVoiceId').value.trim(),
+      model: $('#vpModel').value.trim() || vdef.model,
+      speed: parseFloat($('#vpSpeed') ? $('#vpSpeed').value : '1.0') || 1.0
     };
-    if (provider === 'minimax') {
-      v.region = ($('#fVoiceRegion') ? $('#fVoiceRegion').value : 'global') || 'global';
-      v.emotion = $('#fVoiceEmotion') ? $('#fVoiceEmotion').value : 'happy';
-      v.speed = parseFloat($('#fVoiceSpeed') ? $('#fVoiceSpeed').value : '1.0') || 1.0;
-    } else if (provider === 'elevenlabs') {
-      v.stability = parseFloat($('#fVoiceStability') ? $('#fVoiceStability').value : '0.5') || 0.5;
-      v.similarityBoost = parseFloat($('#fVoiceSimilarity') ? $('#fVoiceSimilarity').value : '0.75') || 0.75;
-    } else if (provider === 'mossland') {
-      v.speed = parseFloat($('#fVoiceSpeed') ? $('#fVoiceSpeed').value : '1.0') || 1.0;
-    }
+    if ($('#vpRegion')) v.region = $('#vpRegion').value === 'cn' ? 'cn' : 'global';
+    if ($('#vpEmotion')) v.emotion = $('#vpEmotion').value;
+    if ($('#vpStability')) v.stability = parseFloat($('#vpStability').value);
+    if ($('#vpSim')) v.similarityBoost = parseFloat($('#vpSim').value);
     return v;
   };
 
+  $('#vpBack').onclick = () => { Object.assign(cfg, collect()); apiEditingId = null; save(); renderVoiceEditor(); };
+  $('#vpUse').onclick = () => {
+    Object.assign(cfg, collect());
+    state.activeVoicePresetId = cfg.id;
+    save(); renderVoicePresetForm(); toast('已设为默认方案');
+  };
+  $('#vpDel').onclick = () => {
+    if (!confirm('确定删除这套语音方案吗？')) return;
+    const wasActive = state.activeVoicePresetId === cfg.id;
+    state.voicePresets = state.voicePresets.filter(v => v.id !== cfg.id);
+    if (wasActive) state.activeVoicePresetId = state.voicePresets[0] ? state.voicePresets[0].id : null;
+    /* 顺手清掉角色上指向这套方案的绑定，避免悬空引用 */
+    state.friends.forEach(f => {
+      if (f.chatSettings && f.chatSettings.voicePresetId === cfg.id) f.chatSettings.voicePresetId = null;
+    });
+    save(); apiEditingId = null; renderVoiceEditor();
+  };
+
+  $('#vpProviderRow').onclick = (e) => {
+    showPicker({
+      title: '语音服务商',
+      items: Object.keys(TTS_PROVIDER_LABEL).map(k => ({ label: TTS_PROVIDER_LABEL[k], value: k })),
+      activeValue: cfg.provider,
+      anchor: e.currentTarget,
+      onSelect: (val) => {
+        if (val === cfg.provider) return;
+        Object.assign(cfg, collect());
+        const nd = TTS_PROVIDER_DEFAULTS[val] || TTS_PROVIDER_DEFAULTS.minimax;
+        cfg.provider = val;
+        cfg.model = nd.model;
+        /* ★ 音色属于服务商，切换后旧音色一定无效：有默认就用默认，没有就清空
+           MiniMax 有内置默认音色；ElevenLabs / Mossland 必须用户自己指定 */
+        cfg.voiceId = nd.voiceId || '';
+        /* 区域/情绪只有 MiniMax 用得上，避免把旧值带给别家 */
+        if (val === 'minimax') {
+          cfg.region = cfg.region === 'cn' ? 'cn' : 'global';
+          cfg.emotion = cfg.emotion || 'happy';
+        } else {
+          delete cfg.region;
+          delete cfg.emotion;
+        }
+        save(); renderVoicePresetForm();
+        if (!cfg.voiceId) toast('这个服务商需要你自己填 Voice ID');
+      }
+    });
+  };
+
+  if ($('#vpFetch')) {
+    $('#vpFetch').onclick = async () => {
+      const vc = Object.assign({}, cfg, collect());
+      const btn = $('#vpFetch');
+      btn.textContent = '拉取中'; btn.disabled = true;
+      try {
+        const voices = await fetchVoiceList(vc, null);
+        if (!voices.length) { toast('没有拿到音色列表'); return; }
+        const cur = $('#vpVoiceId').value.trim();
+        $('#vpChips').innerHTML = voices.map(v =>
+          `<span class="chip ${v.id === cur ? 'active' : ''}" data-vid="${esc(v.id)}">${esc(v.name)}</span>`
+        ).join('');
+        toast(vc.provider === 'minimax' ? `内置 ${voices.length} 个官方音色，点一下选` : `拿到 ${voices.length} 个音色`);
+      } catch (e) {
+        toast(friendlyError(e));
+      } finally {
+        btn.textContent = '拉取音色'; btn.disabled = false;
+      }
+    };
+    $('#vpChips').onclick = (e) => {
+      const chip = e.target.closest('.chip'); if (!chip) return;
+      $('#vpVoiceId').value = chip.dataset.vid;
+      $$('#vpChips .chip').forEach(c => c.classList.toggle('active', c === chip));
+    };
+  }
+
+  const pb = $('#vpPreviewBtn');
+  if (pb) pb.onclick = () => previewVoice(($('#vpPreviewText') || {}).value || '', Object.assign({}, cfg, collect()), null, pb);
+
+  if ($('#vpSpeed')) $('#vpSpeed').oninput = (e) => { $('#vpSpeedVal').textContent = e.target.value; };
+  if ($('#vpStability')) $('#vpStability').oninput = (e) => { $('#vpStabVal').textContent = e.target.value; };
+  if ($('#vpSim')) $('#vpSim').oninput = (e) => { $('#vpSimVal').textContent = e.target.value; };
+}
+
+function renderApiApp() {
+  if (apiView === 'main') return renderMainModelEditor();
+  if (apiView === 'vision') return renderVisionEditor();
+  if (apiView === 'voice') return renderVoiceEditor();
+
+  const api = getActiveApi();
+  const vis = resolvedVision();
+  const voice = getVoiceCfg();
+  const voiceReady = hasVoicePreset();
+  const presetCount = (state.voicePresets || []).length;
+
+  const mainSub = api
+    ? `${esc(api.model || '没选模型')} · ${esc(api.name || '未命名')}`
+    : '还没配置，点进去添加';
+  const visSub = !vis.enabled ? '未启用，AI 看不到图片'
+    : `${esc(vis.model || '沿用主模型')}${vis.inheritModel ? '（继承主模型）' : ''}`;
+  const voiceSub = !presetCount ? '还没有语音方案，点进去创建'
+    : (!voiceReady ? `共 ${presetCount} 套 · 还没填 Key`
+    : `${esc(TTS_PROVIDER_LABEL[voice.provider] || 'MiniMax')} · 共 ${presetCount} 套`);
+
+  const item = (key, title, sub, badge, tone) => `
+    <div class="api-entry" data-entry="${key}">
+      <div class="api-entry-icon tone-${tone}">${ICONS[key === 'main' ? 'api' : key === 'vision' ? 'image' : 'music']}</div>
+      <div class="api-entry-main">
+        <div class="api-entry-title">${title}${badge ? `<span class="api-entry-badge">${badge}</span>` : ''}</div>
+        <div class="api-entry-sub">${sub}</div>
+      </div>
+      <span class="li-chev">›</span>
+    </div>`;
+
+  appView.innerHTML = `${headerHTML('API 配置')}
+    <div class="app-body">
+      <div class="card api-entry-card">
+        ${item('main', '主模型', mainSub, api ? `共 ${state.apis.length} 套` : '', 'pink')}
+        ${item('vision', '视觉模型', visSub, vis.enabled ? '已开启' : '', 'mint')}
+        ${item('voice', '语音模型', voiceSub, voiceReady ? '已配置' : '', 'lilac')}
+      </div>
+      <p class="hint">三个板块各自独立保存。主模型可以存多套预设，随时切换；视觉与语音留空的项会自动沿用主模型。</p>
+    </div>`;
+
+  appView.querySelectorAll('.api-entry').forEach(el => {
+    el.onclick = () => { apiView = el.dataset.entry; renderApiApp(); };
+  });
+}
+
+const TTS_PROVIDER_LABEL = { minimax: 'MiniMax', elevenlabs: 'ElevenLabs', mossland: 'Mossland' };
+
+/* ============================================================
+   板块一：主模型（多套预设 + 切换）
+   ============================================================ */
+function renderMainModelEditor() {
+  if (apiEditingId) return renderMainModelForm();
+  const listHTML = state.apis.length
+    ? state.apis.map(a => {
+        const isActive = a.id === state.activeApiId;
+        return `<div class="list-item api-preset ${isActive ? 'active' : ''}" data-id="${a.id}">
+          <div class="api-preset-dot"></div>
+          <div class="li-main">
+            <div class="li-title">${esc(a.name || '未命名')}${isActive ? '<span class="li-badge">使用中</span>' : ''}</div>
+            <div class="li-sub">${esc(a.model || '没填模型')} · ${esc(shortHost(a.url) || '没填地址')}</div>
+          </div>
+          <span class="li-chev">›</span>
+        </div>`;
+      }).join('')
+    : `<div class="empty-tip">还没有主模型<br>点下面的按钮添加一套</div>`;
+
+  appView.innerHTML = `
+    <div class="app-header"><button class="back-btn" id="mmBack">‹ API</button><h1>主模型</h1></div>
+    <div class="app-body">
+      <div class="section-title">全部预设 <span class="sec-tag">点一下即可切换</span></div>
+      <div class="card"><div class="list" id="mmList">${listHTML}</div></div>
+      <button class="btn btn-primary" id="mmAdd">+ 新增一套配置</button>
+      <p class="hint">每套配置对应一个供应商 / 中转站。可以存多套，随时切到另一套方案。</p>
+    </div>`;
+
+  $('#mmBack').onclick = () => { apiView = 'list'; renderApiApp(); };
+  $('#mmAdd').onclick = () => {
+    const cfg = {
+      id: uid('a_'), name: '新配置', url: '', key: '', model: '', temperature: 0.8,
+      visionEnabled: false, visionModel: '', visionUrl: '', visionKey: ''
+    };
+    state.apis.push(cfg);
+    if (!state.activeApiId) state.activeApiId = cfg.id;
+    save(); apiEditingId = cfg.id; renderMainModelForm();
+  };
+  $('#mmList').onclick = (e) => {
+    const item = e.target.closest('.list-item'); if (!item) return;
+    apiEditingId = item.dataset.id;
+    renderMainModelForm();
+  };
+}
+
+function renderMainModelForm() {
+  const cfg = state.apis.find(a => a.id === apiEditingId);
+  if (!cfg) { apiEditingId = null; return renderMainModelEditor(); }
+  const isActive = cfg.id === state.activeApiId;
+
+  appView.innerHTML = `
+    <div class="app-header"><button class="back-btn" id="mfBack">‹ 主模型</button><h1>编辑配置</h1>
+      <button class="header-btn" id="mfUse">${isActive ? '✓ 使用中' : '设为使用'}</button></div>
+    <div class="app-body">
+      <div class="card">
+        <div class="field"><label>配置名称</label><input type="text" id="mfName" value="${esc(cfg.name)}" placeholder="例如：官方 / 某中转站"></div>
+        <div class="field"><label>接口地址</label><input type="text" id="mfUrl" value="${esc(cfg.url)}" placeholder="https://api.example.com" autocomplete="off" spellcheck="false"></div>
+        <div class="field"><label>API Key</label><input type="password" id="mfKey" value="${esc(cfg.key)}" placeholder="sk-..." autocomplete="off" spellcheck="false"></div>
+        <div class="field">
+          <label>模型</label>
+          <div class="field-row"><input type="text" id="mfModel" value="${esc(cfg.model)}" placeholder="手动输入，或点右边拉取" autocomplete="off" spellcheck="false"><button class="btn btn-ghost" id="mfFetch">拉取模型</button></div>
+          <div class="model-chips" id="mfChips"></div>
+        </div>
+        <div class="field"><label>温度 <span id="mfTempVal" style="color:#6e7d94;font-weight:600;">${cfg.temperature ?? 0.8}</span></label><input type="range" id="mfTemp" min="0" max="2" step="0.1" value="${cfg.temperature ?? 0.8}" style="width:100%;accent-color:#8a9bb5;"></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" id="mfSave">保存</button><button class="btn btn-danger" id="mfDel">删除</button></div>
+    </div>`;
+
   const collect = () => ({
-    name: $('#fName').value.trim() || '未命名',
-    url: $('#fUrl').value.trim(),
-    key: $('#fKey').value.trim(),
-    model: $('#fModel').value.trim(),
-    temperature: parseFloat($('#fTemp').value) || 0.8,
-    visionEnabled: $('#fVisionSwitch').classList.contains('on'),
-    visionModel: $('#fVisionModel').value.trim(),
-    visionUrl: $('#fVisionUrl').value.trim(),
-    visionKey: $('#fVisionKey').value.trim(),
-    voice: collectVoice()
+    name: $('#mfName').value.trim() || '未命名',
+    url: $('#mfUrl').value.trim(),
+    key: $('#mfKey').value.trim(),
+    model: $('#mfModel').value.trim(),
+    temperature: parseFloat($('#mfTemp').value) || 0.8
   });
 
-  // provider 切换
-  $('#fVoiceProviderRow').onclick = (e) => {
-    const chip = e.target.closest('.tts-provider-chip');
-    if (!chip) return;
-    const newProvider = chip.dataset.provider;
-    const oldProvider = $('#fVoiceProviderRow').dataset.active;
-    if (newProvider === oldProvider) return;
-    $('#fVoiceProviderRow').dataset.active = newProvider;
-    $('#fVoiceProviderRow').querySelectorAll('.tts-provider-chip').forEach(c => c.classList.toggle('active', c === chip));
-    const nd = TTS_PROVIDER_DEFAULTS[newProvider] || TTS_PROVIDER_DEFAULTS.minimax;
-    if ($('#fVoiceModel')) $('#fVoiceModel').value = nd.model;
-    if ($('#fVoiceId')) {
-      $('#fVoiceId').value = nd.voiceId || '';
-      $('#fVoiceId').placeholder = newProvider === 'mossland' ? '去 Moss 官网复制音色 ID'
-        : (newProvider === 'minimax' ? '点下方音色点选' : '填写或点右边拉取');
-    }
-    if ($('#fVoiceChips')) $('#fVoiceChips').innerHTML = '';
-    // 拉取按钮：Moss 不支持拉取，隐藏；MiniMax 用内置音色表，保留（点一下列出内置音色）
-    if ($('#fVoiceFetch')) $('#fVoiceFetch').style.display = (newProvider === 'mossland') ? 'none' : '';
-    if ($('#fVoiceIdHint')) $('#fVoiceIdHint').style.display = (newProvider === 'mossland') ? 'block' : 'none';
-    // MiniMax 切换区域时联动默认模型
-    if (newProvider === 'minimax' && $('#fVoiceRegion')) {
-      const rk = $('#fVoiceRegion').value === 'cn' ? 'cn' : 'global';
-      if (TTS_PROVIDER_DEFAULTS.minimax && MINIMAX_REGIONS[rk] && $('#fVoiceModel')) {
-        $('#fVoiceModel').value = MINIMAX_REGIONS[rk].model;
-      }
-    }
-    document.querySelectorAll('.tts-extra-field').forEach(el => {
-      el.classList.toggle('show', el.dataset.for === newProvider);
-    });
-    const btn = $('#fVoicePreviewBtn');
-    if (btn) stopTtsPreview(btn);
-  };
-
-  // MiniMax 区域切换 → 联动默认模型
-  if ($('#fVoiceRegion')) {
-    $('#fVoiceRegion').onchange = () => {
-      const rk = $('#fVoiceRegion').value === 'cn' ? 'cn' : 'global';
-      if ($('#fVoiceModel') && MINIMAX_REGIONS[rk]) $('#fVoiceModel').value = MINIMAX_REGIONS[rk].model;
-    };
-  }
-
-  // 拉取音色（MiniMax = 内置表；ElevenLabs = 真实请求；Moss = 提示手填）
-  $('#fVoiceFetch').onclick = async () => {
-    const vc = collectVoice();
-    const baseApi = { url: $('#fUrl').value.trim(), key: $('#fKey').value.trim() };
-    const btn = $('#fVoiceFetch');
-    btn.textContent = '拉取中'; btn.disabled = true;
-    try {
-      const voices = await fetchVoiceList(vc, baseApi);
-      if (!voices.length) { toast('没有拿到音色列表'); return; }
-      const cur = $('#fVoiceId').value.trim();
-      $('#fVoiceChips').innerHTML = voices.map(v =>
-        `<span class="chip ${v.id === cur ? 'active' : ''}" data-vid="${esc(v.id)}">${esc(v.name)}</span>`
-      ).join('');
-      toast(vc.provider === 'minimax' ? ('内置 ' + voices.length + ' 个官方音色，点一下选') : ('拿到 ' + voices.length + ' 个音色'));
-    } catch (e) {
-      toast(friendlyError(e));
-    } finally {
-      btn.textContent = '拉取音色'; btn.disabled = false;
-    }
-  };
-  // 音色 chips 点击
-  $('#fVoiceChips').onclick = (e) => {
-    const chip = e.target.closest('.chip');
-    if (!chip) return;
-    $('#fVoiceId').value = chip.dataset.vid;
-    document.querySelectorAll('#fVoiceChips .chip').forEach(c => c.classList.toggle('active', c === chip));
-  };
-
-  // 试听
-  const previewBtn = $('#fVoicePreviewBtn');
-  if (previewBtn) {
-    previewBtn.onclick = () => {
-      const text = ($('#fVoicePreviewText') || {}).value || '';
-      const vc = collectVoice();
-      const baseApi = { url: $('#fUrl').value.trim(), key: $('#fKey').value.trim() };
-      previewVoice(text, vc, baseApi, previewBtn);
-    };
-  }
-
-  // 滑块实时显示数值
-  if ($('#fVoiceSpeed')) {
-    $('#fVoiceSpeed').oninput = (e) => { $('#fVoiceSpeedVal').textContent = e.target.value; };
-  }
-  if ($('#fVoiceStability')) {
-    $('#fVoiceStability').oninput = (e) => { $('#fVoiceStabilityVal').textContent = e.target.value; };
-  }
-  if ($('#fVoiceSimilarity')) {
-    $('#fVoiceSimilarity').oninput = (e) => { $('#fVoiceSimilarityVal').textContent = e.target.value; };
-  }
-
-  // 原有事件
-  $('#fVisionSwitch').onclick = () => { const sw = $('#fVisionSwitch'); sw.classList.toggle('on'); $('#visionFields').style.display = sw.classList.contains('on') ? 'block' : 'none'; };
-  $('#apiBack').onclick = () => { Object.assign(cfg, collect()); stopTtsPreview($('#fVoicePreviewBtn')); apiEditingId = null; save(); renderApiApp(); };
-  $('#apiUse').onclick = () => { Object.assign(cfg, collect()); stopTtsPreview($('#fVoicePreviewBtn')); state.activeApiId = cfg.id; save(); renderApiEditor(); toast('已切换'); };
-  $('#fTemp').oninput = (e) => { $('#fTempVal').textContent = e.target.value; };
-  $('#fSave').onclick = () => { Object.assign(cfg, collect()); save(); toast('已保存'); };
-  $('#fDelete').onclick = () => {
-    if (!confirm('确定删除这个配置吗？')) return;
-    stopTtsPreview($('#fVoicePreviewBtn'));
+  $('#mfBack').onclick = () => { Object.assign(cfg, collect()); apiEditingId = null; save(); renderMainModelEditor(); };
+  $('#mfSave').onclick = () => { Object.assign(cfg, collect()); save(); toast('已保存'); };
+  $('#mfUse').onclick = () => { Object.assign(cfg, collect()); state.activeApiId = cfg.id; save(); renderMainModelForm(); toast('已切换'); };
+  $('#mfDel').onclick = () => {
+    if (!confirm('确定删除这套配置吗？')) return;
     state.apis = state.apis.filter(a => a.id !== cfg.id);
     if (state.activeApiId === cfg.id) state.activeApiId = state.apis[0] ? state.apis[0].id : null;
-    apiEditingId = null; save(); renderApiApp(); toast('已删除');
+    apiEditingId = null; save(); renderMainModelEditor(); toast('已删除');
   };
-  $('#fFetch').onclick = async () => {
+  $('#mfTemp').oninput = (e) => { $('#mfTempVal').textContent = e.target.value; };
+  $('#mfFetch').onclick = async () => {
     const { url, key } = collect();
     if (!url) return toast('先填接口地址'); if (!key) return toast('先填 API Key');
-    const btn = $('#fFetch'); btn.textContent = '拉取中'; btn.disabled = true;
+    const btn = $('#mfFetch'); btn.textContent = '拉取中'; btn.disabled = true;
     try {
       const models = await fetchModelList(url, key);
-      const curModel = $('#fModel').value.trim();
-      $('#fChips').innerHTML = models.map(m => `<span class="chip${m === curModel ? ' active' : ''}" data-m="${esc(m)}">${esc(m)}</span>`).join('');
+      const cur = $('#mfModel').value.trim();
+      $('#mfChips').innerHTML = models.map(m => `<span class="chip${m === cur ? ' active' : ''}" data-m="${esc(m)}">${esc(m)}</span>`).join('');
       toast(`拿到 ${models.length} 个模型`);
     } catch (e) { toast(friendlyError(e)); }
-    finally { btn.textContent = '拉取'; btn.disabled = false; }
+    finally { btn.textContent = '拉取模型'; btn.disabled = false; }
   };
-  $('#fChips').onclick = (e) => { const chip = e.target.closest('.chip'); if (!chip) return; $('#fModel').value = chip.dataset.m; $$('#fChips .chip').forEach(c => c.classList.toggle('active', c === chip)); };
-  $('#fVisionFetch').onclick = async () => {
-    const url = $('#fVisionUrl').value.trim() || $('#fUrl').value.trim();
-    const key = $('#fVisionKey').value.trim() || $('#fKey').value.trim();
-    if (!url) return toast('先填地址'); if (!key) return toast('先填 Key');
-    const btn = $('#fVisionFetch'); btn.textContent = '拉取中'; btn.disabled = true;
-    try {
-      const models = await fetchModelList(url, key);
-      const curModel = $('#fVisionModel').value.trim();
-      $('#fVisionChips').innerHTML = models.map(m => `<span class="chip${m === curModel ? ' active' : ''}" data-m="${esc(m)}">${esc(m)}</span>`).join('');
-      toast(`拿到 ${models.length} 个模型`);
-    } catch (e) { toast(friendlyError(e)); }
-    finally { btn.textContent = '拉取'; btn.disabled = false; }
+  $('#mfChips').onclick = (e) => { const chip = e.target.closest('.chip'); if (!chip) return; $('#mfModel').value = chip.dataset.m; $$('#mfChips .chip').forEach(c => c.classList.toggle('active', c === chip)); };
+}
+
+/* ============================================================
+   板块二：视觉模型（留空继承主模型）
+   ============================================================ */
+function renderVisionEditor() {
+  const v = state.visionCfg || { enabled: false, model: '', url: '', key: '' };
+  const api = getActiveApi();
+  const mainHost = api ? (shortHost(api.url) || '未填地址') : '未配置主模型';
+
+  appView.innerHTML = `
+    <div class="app-header"><button class="back-btn" id="vBack">‹ API</button><h1>视觉模型</h1><button class="header-btn" id="vSave">保存</button></div>
+    <div class="app-body">
+      <div class="card">
+        <div class="vision-row"><div class="vr-left">
+          <div class="vr-title">允许 AI 看图</div>
+          <div class="vr-sub">关闭后 AI 无法理解你发的图片</div>
+        </div><div class="switch ${v.enabled ? 'on' : ''}" id="vSwitch"></div></div>
+      </div>
+
+      <div id="vFields" style="display:${v.enabled ? 'block' : 'none'};">
+        <div class="card">
+          <div class="field">
+            <label>视觉模型</label>
+            <div class="field-row"><input type="text" id="vModel" value="${esc(v.model || '')}" placeholder="留空 = 沿用主模型" autocomplete="off" spellcheck="false"><button class="btn btn-ghost" id="vFetch">拉取模型</button></div>
+            <div class="model-chips" id="vChips"></div>
+            <p class="hint">只填模型名即可。下面的地址与 Key 留空时会自动沿用主模型。</p>
+          </div>
+          <div class="field">
+            <label>接口地址 <span class="inherit-tag">留空 = ${esc(mainHost)}</span></label>
+            <input type="text" id="vUrl" value="${esc(v.url || '')}" placeholder="留空就用主模型的接口地址" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label>API Key <span class="inherit-tag">留空 = 主模型的 Key</span></label>
+            <input type="password" id="vKey" value="${esc(v.key || '')}" placeholder="留空就用主模型的 Key" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+        <p class="hint">只有当视觉模型来自另一家服务商时，才需要单独填地址与 Key。</p>
+      </div>
+    </div>`;
+
+  const collect = () => ({
+    enabled: $('#vSwitch').classList.contains('on'),
+    model: ($('#vModel') ? $('#vModel').value.trim() : ''),
+    url: ($('#vUrl') ? $('#vUrl').value.trim() : ''),
+    key: ($('#vKey') ? $('#vKey').value.trim() : '')
+  });
+
+  $('#vBack').onclick = () => { state.visionCfg = collect(); save(); apiView = 'list'; renderApiApp(); };
+  $('#vSave').onclick = () => { state.visionCfg = collect(); save(); toast('已保存'); };
+  $('#vSwitch').onclick = () => {
+    const sw = $('#vSwitch'); sw.classList.toggle('on');
+    $('#vFields').style.display = sw.classList.contains('on') ? 'block' : 'none';
   };
-  $('#fVisionChips').onclick = (e) => { const chip = e.target.closest('.chip'); if (!chip) return; $('#fVisionModel').value = chip.dataset.m; $$('#fVisionChips .chip').forEach(c => c.classList.toggle('active', c === chip)); };
+  if ($('#vFetch')) {
+    $('#vFetch').onclick = async () => {
+      /* 拉取模型用「解析后」的地址与 Key：留空也能拉到，不用用户先填 */
+      const url = ($('#vUrl').value.trim()) || (api && api.url) || '';
+      const key = ($('#vKey').value.trim()) || (api && api.key) || '';
+      if (!url) return toast('先配置主模型的接口地址');
+      if (!key) return toast('先配置主模型的 API Key');
+      const btn = $('#vFetch'); btn.textContent = '拉取中'; btn.disabled = true;
+      try {
+        const models = await fetchModelList(url, key);
+        const cur = $('#vModel').value.trim();
+        $('#vChips').innerHTML = models.map(m => `<span class="chip${m === cur ? ' active' : ''}" data-m="${esc(m)}">${esc(m)}</span>`).join('');
+        toast(`拿到 ${models.length} 个模型`);
+      } catch (e) { toast(friendlyError(e)); }
+      finally { btn.textContent = '拉取模型'; btn.disabled = false; }
+    };
+    $('#vChips').onclick = (e) => { const chip = e.target.closest('.chip'); if (!chip) return; $('#vModel').value = chip.dataset.m; $$('#vChips .chip').forEach(c => c.classList.toggle('active', c === chip)); };
+  }
+}
+
+/* ============================================================
+   板块三：语音模型（中转内置，无需填地址）
+   ============================================================ */
+/* 取域名用于列表副标题，避免长 URL 撑破行 */
+function shortHost(u) {
+  if (!u) return '';
+  try { return new URL(u).host; } catch (_) { return String(u).replace(/^https?:\/\//, '').split('/')[0]; }
 }
 
 function renderWorldApp() {
@@ -14312,6 +16392,72 @@ async function load() {
         };
       });
     }
+    /* ★ 视觉数据迁移：旧的「一个配置塞三种模型」→ 独立视觉配置。
+       迁移后仍保留 a.vision* 原字段，老用户配置不会丢。 */
+    if (!s.visionCfg) {
+      const act = state.apis.find(a => a.id === (s.activeApiId || (state.apis[0] && state.apis[0].id)));
+      const legacyVisions = state.apis.filter(a => a.visionEnabled || a.visionModel || a.visionUrl || a.visionKey);
+      const src = (act && (act.visionEnabled || act.visionModel || act.visionUrl || act.visionKey)) ? act
+                : (legacyVisions[0] || null);
+      if (src) {
+        state.visionCfg = {
+          enabled: !!src.visionEnabled,
+          model: src.visionModel || '',
+          url: src.visionUrl || '',
+          key: src.visionKey || ''
+        };
+      }
+    }
+    if (s.visionCfg && typeof s.visionCfg === 'object') {
+      state.visionCfg = {
+        enabled: !!s.visionCfg.enabled,
+        model: s.visionCfg.model || '',
+        url: s.visionCfg.url || '',
+        key: s.visionCfg.key || ''
+      };
+    }
+
+    /* ★ 语音数据迁移：老结构「单一 voiceCfg / a.voice」→ 语音方案列表。
+       旧字段全部保留，只做「打包成一套方案」的加法。 */
+    if (Array.isArray(s.voicePresets) && s.voicePresets.length) {
+      state.voicePresets = s.voicePresets.map(v => ({
+        id: v.id || uid('v_'),
+        name: v.name || (TTS_PROVIDER_LABEL[v.provider] || '语音方案'),
+        provider: v.provider || 'minimax',
+        region: v.region === 'cn' ? 'cn' : 'global',
+        url: v.url || '', proxyUrl: v.proxyUrl || '',
+        key: v.key || '', voiceId: v.voiceId || '', model: v.model || '',
+        emotion: v.emotion || 'happy',
+        speed: typeof v.speed === 'number' ? v.speed : 1.0,
+        stability: typeof v.stability === 'number' ? v.stability : 0.5,
+        similarityBoost: typeof v.similarityBoost === 'number' ? v.similarityBoost : 0.75
+      }));
+      state.activeVoicePresetId = s.activeVoicePresetId || state.voicePresets[0].id;
+    } else {
+      /* 从旧数据结构里找一个可用音色，转成第一套方案 */
+      const act = state.apis.find(a => a.id === (s.activeApiId || (state.apis[0] && state.apis[0].id)));
+      const legacy = (s.voiceCfg && typeof s.voiceCfg === 'object') ? s.voiceCfg
+                   : ((act && act.voice) ? act.voice
+                   : (state.apis.map(a => a.voice).find(v => v && (v.key || v.voiceId)) || null));
+      if (legacy && (legacy.key || legacy.voiceId)) {
+        state.voicePresets = [Object.assign({
+          id: uid('v_'), name: (TTS_PROVIDER_LABEL[legacy.provider] || '我的语音')
+        }, legacy)];
+        state.activeVoicePresetId = state.voicePresets[0].id;
+      }
+    }
+
+    /* ★ 角色聊天设置迁移：老角色没有 chatSettings，补一份默认值 */
+    state.friends.forEach(f => {
+      if (!f.chatSettings || typeof f.chatSettings !== 'object') {
+        f.chatSettings = { language: 'auto', translation: false, voiceFreq: 'occasional', voicePresetId: null };
+      } else {
+        f.chatSettings.language = f.chatSettings.language || 'auto';
+        f.chatSettings.translation = !!f.chatSettings.translation;
+        f.chatSettings.voiceFreq = f.chatSettings.voiceFreq || 'occasional';
+        f.chatSettings.voicePresetId = f.chatSettings.voicePresetId || null;
+      }
+    });
     if (Array.isArray(s.worldbooks)) state.worldbooks = s.worldbooks;
     if (Array.isArray(s.stickers)) state.stickers = s.stickers;
     if (Array.isArray(s.favorites)) {
@@ -14325,11 +16471,44 @@ async function load() {
       }));
     }
     if (Array.isArray(s.friends)) {
-      state.friends = s.friends.map(f => ({
-        id: f.id || uid('fr_'), name: f.name || '未命名',
-        avatar: f.avatar || '', persona: f.persona || '',
-        messages: Array.isArray(f.messages) ? f.messages : []
+      state.friends = s.friends.map(f => {
+        const fr = Object.assign({}, f, {
+          id: f.id || uid('fr_'), name: f.name || '未命名',
+          avatar: f.avatar || '', persona: f.persona || '',
+          messages: Array.isArray(f.messages) ? f.messages : []
+        });
+        fr.chatSettings = Object.assign(
+          { language: 'auto', translation: false, voiceFreq: 'occasional', voicePresetId: null },
+          (f.chatSettings && typeof f.chatSettings === 'object') ? f.chatSettings : {}
+        );
+        return fr;
+      });
+    }
+    if (Array.isArray(s.archive)) {
+      state.archive = s.archive.map(a => ({
+        id: a.id || uid('a_'), name: a.name || '无名档案',
+        avatar: a.avatar || '', tag: a.tag || '', relation: a.relation || '',
+        persona: a.persona || '', archiveCode: a.archiveCode || ''
       }));
+    }
+    /* ★ 老用户的角色自动归档一次：让「档案」App 里立刻能看到已有角色，
+       并给每个老角色补一个稳定编号（已有的角色对话不受影响）。 */
+    if (!s.archiveSeeded) {
+      const names = new Set(state.archive.map(a => (a.name || '') + '|' + (a.avatar || '')));
+      state.friends.forEach(f => {
+        const k = (f.name || '') + '|' + (f.avatar || '');
+        if (names.has(k)) return;
+        names.add(k);
+        const card = {
+          id: uid('a_'), name: f.name || '无名档案', avatar: f.avatar || '',
+          tag: '旧角色', relation: '', persona: f.persona || ''
+        };
+        card.archiveCode = archiveCodeOf(card);
+        f.archiveCode = card.archiveCode;
+        state.archive.push(card);
+      });
+      s.archiveSeeded = true;
+      state.archiveSeeded = true;
     }
     if (Array.isArray(s.homePages)) state.homePages = s.homePages;
     if (Array.isArray(s.widgets)) state.widgets = s.widgets;
